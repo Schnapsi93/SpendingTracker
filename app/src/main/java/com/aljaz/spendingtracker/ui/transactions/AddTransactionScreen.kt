@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.aljaz.spendingtracker.domain.model.TransactionType
+import com.aljaz.spendingtracker.ui.components.CategorySelector
 
 /**
  * Form for adding a new transaction or editing an existing one.
@@ -99,6 +100,12 @@ fun AddTransactionScreen(
                 isError = state.errorMessage != null,
                 supportingText = state.errorMessage?.let { message -> { Text(message) } },
                 modifier = Modifier.fillMaxWidth()
+            )
+            Text(text = "Category", style = MaterialTheme.typography.titleSmall)
+            CategorySelector(
+                categories = state.categoriesForType,
+                selectedId = state.selectedCategoryId,
+                onCategoryClick = viewModel::onCategoryClick
             )
 
             OutlinedTextField(

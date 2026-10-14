@@ -38,6 +38,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.aljaz.spendingtracker.ui.components.MonthPickerDialog
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.style.TextOverflow
+import com.aljaz.spendingtracker.domain.model.Category
+import com.aljaz.spendingtracker.ui.components.ColorDot
 
 /** Currency used for the totals until multi-currency support exists. */
 private const val DISPLAY_CURRENCY = "EUR"
@@ -91,6 +96,7 @@ fun HomeScreen(
                     items(items = state.transactions, key = { it.id }) { transaction ->
                         TransactionRow(
                             transaction = transaction,
+                            category = transaction.categoryId?.let { state.categoriesById[it] },
                             onClick = { onTransactionClick(transaction.id) }
                         )
                         HorizontalDivider()
@@ -177,10 +183,16 @@ private fun SummaryLine(label: String, amountMinor: Long) {
     }
 }
 
-/** One transaction in the list. Tapping it opens the edit form. */
+/**
+ * One transaction in the list: color dot, title, category and date
+ * on the left, amount on the right. Tapping it opens the edit form.
+ *
+ * @param category the transaction's category, or null if uncategorized
+ */
 @Composable
 private fun TransactionRow(
     transaction: Transaction,
+    category: Category?,
     onClick: () -> Unit
 ) {
     val isIncome = transaction.type == TransactionType.INCOME
@@ -193,18 +205,36 @@ private fun TransactionRow(
         .toLocalDate()
         .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
 
+    // Uncategorized transactions get a neutral grey dot.
+    val dotColor = category?.colorArgb
+        ?: MaterialTheme.colorScheme.outlineVariant.toArgb()
+    val categoryName = category?.name ?: "Uncategorized"
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)   // makes the whole row tappable
+            .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
-            Text(text = transaction.title, style = MaterialTheme.typography.bodyLarge)
-            Text(text = date, style = MaterialTheme.typography.bodySmall)
+        ColorDot(colorArgb = dotColor)
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // Takes all remaining width, so long titles never push the amount off screen.
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = transaction.title,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "$categoryName · $date",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
+
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = sign + MoneyFormatter.format(transaction.amountMinor, transaction.currency),
             color = amountColor,

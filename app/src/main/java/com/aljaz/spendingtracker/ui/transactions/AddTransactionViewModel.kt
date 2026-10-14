@@ -10,6 +10,7 @@ import com.aljaz.spendingtracker.domain.model.TransactionType
 import com.aljaz.spendingtracker.domain.usecase.AddTransactionUseCase
 import com.aljaz.spendingtracker.domain.usecase.DeleteTransactionUseCase
 import com.aljaz.spendingtracker.domain.usecase.GetTransactionUseCase
+import com.aljaz.spendingtracker.domain.usecase.ObserveCategoriesUseCase
 import com.aljaz.spendingtracker.domain.usecase.UpdateTransactionUseCase
 import com.aljaz.spendingtracker.ui.navigation.TRANSACTION_ID_ARG
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,7 +34,8 @@ class AddTransactionViewModel @Inject constructor(
     private val getTransaction: GetTransactionUseCase,
     private val addTransaction: AddTransactionUseCase,
     private val updateTransaction: UpdateTransactionUseCase,
-    private val deleteTransaction: DeleteTransactionUseCase
+    private val deleteTransaction: DeleteTransactionUseCase,
+    private val observeCategories: ObserveCategoriesUseCase
 ) : ViewModel() {
 
     /** Id from the navigation route, or null in add mode. */
@@ -41,7 +43,7 @@ class AddTransactionViewModel @Inject constructor(
 
     /**
      * The transaction as it was loaded, kept so that fields the form
-     * doesn't show (source, category, raw text...) survive an edit.
+     * doesn't show (source, raw text...) survive an edit.
      */
     private var original: Transaction? = null
 
@@ -52,6 +54,12 @@ class AddTransactionViewModel @Inject constructor(
     val uiState: StateFlow<AddTransactionUiState> = _uiState.asStateFlow()
 
     init {
+        // keep the category list up to date for the chips.
+        viewModelScope.launch {
+            observeCategories().collect { list ->
+                _uiState.update { it.copy(categories = list) }
+            }
+        }
         transactionId?.let { loadTransaction(it) }
     }
 
@@ -71,15 +79,34 @@ class AddTransactionViewModel @Inject constructor(
                     amountText = MoneyParser.formatForInput(transaction.amountMinor),
                     title = transaction.title,
                     note = transaction.note.orEmpty(),
-                    timestamp = transaction.timestamp
+                    timestamp = transaction.timestamp,
+                    selectedCategoryId = transaction.categoryId
                 )
             }
         }
     }
 
-    /** Switches between income and expense. */
-    fun onTypeChange(type: TransactionType) =
-        _uiState.update { it.copy(type = type) }
+    /**
+     * Switches between income and expense.
+     * A category only fits one type, so the selection is dropped if it
+     * no longer matches.
+     */
+    fun onTypeChange(type: TransactionType) = _uiState.update { state ->
+        val selectionStillFits = state.categories.any {
+            it.id == state.selectedCategoryId && it.type == type
+        }
+        state.copy(
+            type = type,
+            selectedCategoryId = if (selectionStillFits) state.selectedCategoryId else null
+        )
+    }
+
+    /**: selects a category, or deselects it if it was already selected. */
+    fun onCategoryClick(categoryId: Long) = _uiState.update {
+        it.copy(
+            selectedCategoryId = if (it.selectedCategoryId == categoryId) null else categoryId
+        )
+    }
 
     /** Stores the amount text and clears any old error. */
     fun onAmountChange(text: String) =
@@ -120,6 +147,7 @@ class AddTransactionViewModel @Inject constructor(
                         type = state.type,
                         amountMinor = amountMinor,
                         currency = DEFAULT_CURRENCY,
+                        categoryId = state.selectedCategoryId,
                         title = state.title,
                         note = state.note,
                         timestamp = state.timestamp
@@ -130,6 +158,7 @@ class AddTransactionViewModel @Inject constructor(
                     existing.copy(
                         type = state.type,
                         amountMinor = amountMinor,
+                        categoryId = state.selectedCategoryId,
                         title = state.title,
                         note = state.note,
                         timestamp = state.timestamp,

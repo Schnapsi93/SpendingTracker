@@ -1,5 +1,6 @@
 package com.aljaz.spendingtracker.ui.transactions
 
+import com.aljaz.spendingtracker.domain.model.Category
 import com.aljaz.spendingtracker.domain.model.TransactionType
 
 /**
@@ -10,6 +11,8 @@ import com.aljaz.spendingtracker.domain.model.TransactionType
  *
  * @property isEditing true when an existing transaction is being edited
  * @property amountText what the user has typed in the amount field
+ * @property categories all categories, of both types
+ * @property selectedCategoryId the chosen category, or null for none
  * @property errorMessage a validation or save error to show, or null
  * @property isSaving true while a save or delete is running
  * @property showDeleteConfirm true while the "Delete?" dialog is open
@@ -23,8 +26,14 @@ data class AddTransactionUiState(
     val title: String = "",
     val note: String = "",
     val timestamp: Long = System.currentTimeMillis(),
+    val categories: List<Category> = emptyList(),
+    val selectedCategoryId: Long? = null,
     val errorMessage: String? = null,
     val isSaving: Boolean = false,
     val showDeleteConfirm: Boolean = false,
     val isFinished: Boolean = false
-)
+) {
+    /** Only the categories that fit the currently chosen type. */
+    val categoriesForType: List<Category>
+        get() = categories.filter { it.type == type }
+}
