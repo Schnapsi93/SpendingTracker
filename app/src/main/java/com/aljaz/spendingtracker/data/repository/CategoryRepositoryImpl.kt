@@ -27,8 +27,8 @@ class CategoryRepositoryImpl @Inject constructor(
     override suspend fun addAll(categories: List<Category>) =
         categoryDao.insertAll(categories.map { it.toEntity() })
 
-    override suspend fun update(category: Category) =
-        categoryDao.update(category.toEntity())
+    override suspend fun update(category: Category): Boolean =
+        categoryDao.update(category.toEntity()) > 0
 
     override suspend fun delete(category: Category) {
         // Both steps run as one database transaction: either both

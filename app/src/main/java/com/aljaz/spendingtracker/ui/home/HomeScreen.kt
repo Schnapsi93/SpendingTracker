@@ -46,6 +46,10 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import androidx.compose.ui.tooling.preview.Preview
+
+
+
 
 
 /** Currency used for the totals until multi-currency support exists. */
@@ -57,12 +61,14 @@ private const val DISPLAY_CURRENCY = "EUR"
  *
  * @param onAddTransactionClick called when the user taps the add button
  * @param onTransactionClick called with a transaction's id when its row is tapped
+ * @param onCategoriesClick called when the user wants to manage categories
  * @param viewModel provided by Hilt automatically
  */
 @Composable
 fun HomeScreen(
     onAddTransactionClick: () -> Unit,
     onTransactionClick: (Long) -> Unit,
+    onCategoriesClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -81,6 +87,19 @@ fun HomeScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
+            // App title with a shortcut to category management.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Spending Tracker",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onCategoriesClick) { Text("Categories") }
+            }
+
             // The header stays fixed at the top; everything below scrolls.
             MonthHeader(
                 month = state.month,

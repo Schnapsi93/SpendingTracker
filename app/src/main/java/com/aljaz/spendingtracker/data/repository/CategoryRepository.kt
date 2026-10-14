@@ -12,7 +12,8 @@ interface CategoryRepository {
     /** Adds several categories, silently skipping existing ones. */
     suspend fun addAll(categories: List<Category>)
 
-    suspend fun update(category: Category)
+    /** @return true when saved, false if the name already exists for that type */
+    suspend fun update(category: Category): Boolean
 
     /**
      * Deletes a category. Its transactions are kept and become

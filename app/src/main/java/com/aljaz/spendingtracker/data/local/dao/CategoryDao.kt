@@ -21,8 +21,14 @@ interface CategoryDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(categories: List<CategoryEntity>)
 
-    @Update
-    suspend fun update(category: CategoryEntity)
+    /**
+     * Saves changes to a category.
+     *
+     * @return number of rows changed: 1 on success, 0 if the new name
+     *         clashes with another category of the same type
+     */
+    @Update(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun update(category: CategoryEntity): Int
 
     @Delete
     suspend fun delete(category: CategoryEntity)

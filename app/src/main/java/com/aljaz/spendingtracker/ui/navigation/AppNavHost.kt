@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.aljaz.spendingtracker.ui.categories.CategoriesScreen
 import com.aljaz.spendingtracker.ui.home.HomeScreen
 import com.aljaz.spendingtracker.ui.transactions.AddTransactionScreen
 
@@ -33,6 +34,9 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                 },
                 onTransactionClick = { id ->
                     navController.navigate(Screen.EditTransaction.createRoute(id))
+                },
+                onCategoriesClick = {
+                    navController.navigate(Screen.Categories.route)
                 }
             )
         }
@@ -50,6 +54,10 @@ fun AppNavHost(modifier: Modifier = Modifier) {
             )
         ) {
             AddTransactionScreen(onBackClick = { navController.popBackStack() })
+        }
+
+        composable(Screen.Categories.route) {
+            CategoriesScreen(onBackClick = { navController.popBackStack() })
         }
     }
 }

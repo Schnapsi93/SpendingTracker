@@ -24,4 +24,7 @@ sealed class Screen(val route: String) {
         /** Builds the real route for one transaction, e.g. "edit_transaction/5". */
         fun createRoute(id: Long) = "edit_transaction/$id"
     }
+
+    /** List of categories, where they can be added, edited and deleted. */
+    data object Categories : Screen("categories")
 }
