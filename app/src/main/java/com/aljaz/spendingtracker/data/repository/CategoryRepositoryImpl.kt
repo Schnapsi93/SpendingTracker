@@ -11,12 +11,14 @@ import com.aljaz.spendingtracker.domain.repository.CategoryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
+import com.aljaz.spendingtracker.data.local.dao.CategoryRuleDao
 
 /** Room-backed implementation of [CategoryRepository]. */
 class CategoryRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val categoryDao: CategoryDao,
-    private val transactionDao: TransactionDao
+    private val transactionDao: TransactionDao,
+    private val ruleDao: CategoryRuleDao
 ) : CategoryRepository {
 
     override suspend fun add(category: Category): Long? {
@@ -31,15 +33,14 @@ class CategoryRepositoryImpl @Inject constructor(
         categoryDao.update(category.toEntity()) > 0
 
     override suspend fun delete(category: Category) {
-        // Both steps run as one database transaction: either both
-        // happen or neither does, so no transaction is ever left
-        // pointing at a category that no longer exists.
+        // All steps run as one database transaction: either all happen or
+        // none do, so nothing is ever left pointing at a missing category.
         database.withTransaction {
             transactionDao.clearCategory(category.id)
+            ruleDao.deleteForCategory(category.id)
             categoryDao.delete(category.toEntity())
         }
     }
-
     override suspend fun getById(id: Long): Category? =
         categoryDao.getById(id)?.toDomain()
 

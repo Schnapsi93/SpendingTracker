@@ -13,6 +13,8 @@ import com.aljaz.spendingtracker.data.csv.CsvHistoryExporter
 import com.aljaz.spendingtracker.domain.export.HistoryExporter
 import com.aljaz.spendingtracker.data.csv.CsvHistoryImporter
 import com.aljaz.spendingtracker.domain.export.HistoryImporter
+import com.aljaz.spendingtracker.data.repository.CategoryRuleRepositoryImpl
+import com.aljaz.spendingtracker.domain.repository.CategoryRuleRepository
 
 /**
  * Connects repository interfaces to their implementations.
@@ -53,4 +55,12 @@ abstract class RepositoryModule {
     abstract fun bindHistoryImporter(
         impl: CsvHistoryImporter
     ): HistoryImporter
+
+
+    /** When code asks for [CategoryRuleRepository], provide the Room version. */
+    @Binds
+    @Singleton
+    abstract fun bindCategoryRuleRepository(
+        impl: CategoryRuleRepositoryImpl
+    ): CategoryRuleRepository
 }

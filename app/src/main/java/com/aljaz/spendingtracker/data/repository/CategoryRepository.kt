@@ -17,7 +17,7 @@ interface CategoryRepository {
 
     /**
      * Deletes a category. Its transactions are kept and become
-     * uncategorized; they are never deleted.
+     * uncategorized; its keyword rules are deleted.
      */
     suspend fun delete(category: Category)
 

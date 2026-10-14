@@ -11,6 +11,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 import com.aljaz.spendingtracker.data.local.dao.CategoryDao
+import com.aljaz.spendingtracker.data.local.dao.CategoryRuleDao
 
 /**
  * Tells Hilt how to build the database and its DAOs.
@@ -41,4 +42,10 @@ object DatabaseModule {
     @Provides
     fun provideCategoryDao(database: AppDatabase): CategoryDao =
         database.categoryDao()
+
+
+    /** Exposes the keyword rule DAO so it can be injected directly. */
+    @Provides
+    fun provideCategoryRuleDao(database: AppDatabase): CategoryRuleDao =
+        database.categoryRuleDao()
 }

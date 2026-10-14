@@ -9,6 +9,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.aljaz.spendingtracker.data.backup.BackupScheduler
+import com.aljaz.spendingtracker.domain.usecase.EnsureStarterRulesUseCase
 
 /**
  * Application entry point.
@@ -23,6 +24,10 @@ class SpendingTrackerApp : Application() {
     @Inject
     lateinit var ensureDefaultCategories: EnsureDefaultCategoriesUseCase
 
+    /** Filled in by Hilt during super.onCreate(). */
+    @Inject
+    lateinit var ensureStarterRules: EnsureStarterRulesUseCase
+
     /**
      * Scope for one-off startup work that should not block the UI.
      * SupervisorJob keeps one failing task from cancelling the others.
@@ -31,7 +36,11 @@ class SpendingTrackerApp : Application() {
 
     override fun onCreate() {
         super.onCreate() // Hilt injects the fields above here
-        appScope.launch { ensureDefaultCategories() }
+        appScope.launch {
+            ensureDefaultCategories()
+            // After the categories, so starter rules reuse "Groceries" instead of creating a copy.
+            ensureStarterRules()
+        }
         BackupScheduler.schedule(this) // daily check for the monthly cloud backup
     }
 }
