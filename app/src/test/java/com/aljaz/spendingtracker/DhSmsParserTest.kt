@@ -116,4 +116,19 @@ class DhSmsParserTest {
             )
         )
     }
+
+
+    @Test
+    fun acceptsTheBankSenderInAnySpelling() {
+        assertEquals(true, parser.acceptsSender("DH d.d."))
+        assertEquals(true, parser.acceptsSender("dh d.d."))
+        assertEquals(true, parser.acceptsSender("DHdd"))
+    }
+
+    @Test
+    fun rejectsOtherSenders() {
+        assertEquals(false, parser.acceptsSender("+38641123456"))
+        assertEquals(false, parser.acceptsSender("NLB"))
+        assertEquals(false, parser.acceptsSender("DH d.d. Info"))
+    }
 }

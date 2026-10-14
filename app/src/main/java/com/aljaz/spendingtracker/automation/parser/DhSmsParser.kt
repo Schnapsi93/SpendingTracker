@@ -19,6 +19,10 @@ class DhSmsParser @Inject constructor() : BankMessageParser {
 
     override val name: String = "Delavska hranilnica (SMS)"
 
+    /** Compares sender names ignoring case, spaces and dots: "DH d.d." = "dh dd" = "DHdd". */
+    override fun acceptsSender(sender: String): Boolean =
+        simplify(sender) == simplify(SENDER)
+
     override fun parse(text: String, zone: ZoneId): ParsedBankMessage? {
         val match = PATTERN.find(text.trim()) ?: return null
         val groups = match.groups
@@ -71,9 +75,16 @@ class DhSmsParser @Inject constructor() : BankMessageParser {
             .trimEnd('-', ' ')
             .trim()
 
-    private companion object {
+    /** Lowercase letters and digits only, for comparing sender names. */
+    private fun simplify(text: String): String =
+        text.lowercase().filter { it.isLetterOrDigit() }
+
+    companion object {
+        /** The sender name the bank's SMS messages arrive from. */
+        const val SENDER = "DH d.d."
+
         /** Accepts "06.10.2026 20:05" as well as "6.10.2026 20:05". */
-        val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("d.M.yyyy H:mm")
+        private val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("d.M.yyyy H:mm")
 
         /**
          * The message layout. Named groups (?<name>...) capture each piece:
@@ -83,7 +94,7 @@ class DhSmsParser @Inject constructor() : BankMessageParser {
          * lazily (.+?) so names that contain dots themselves, like
          * "OTP BANKA D.D.", stay complete.
          */
-        val PATTERN = Regex(
+        private val PATTERN = Regex(
             """Obvestilo o transakciji:\s*(?<operation>[^,]+),""" +
                     """\s*(?<date>\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{2}),""" +
                     """\s*kartica\s*\*+(?<card>\d{4}),""" +

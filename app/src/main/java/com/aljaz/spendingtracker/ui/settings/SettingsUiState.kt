@@ -3,6 +3,19 @@ package com.aljaz.spendingtracker.ui.settings
 import com.aljaz.spendingtracker.domain.backup.BackupSettings
 
 /**
+ * The "Test with a message" field in the Bank SMS card.
+ *
+ * @property text the pasted message
+ * @property isProcessing true while it is being processed
+ * @property result what happened, or null
+ */
+data class SmsTestState(
+    val text: String = "",
+    val isProcessing: Boolean = false,
+    val result: String? = null
+)
+
+/**
  * The Nextcloud form.
  *
  * @property password the newly typed app password; empty means
@@ -32,12 +45,14 @@ data class CloudFormState(
  * @property isImporting true while an import is running
  * @property message result of the last export or import, or null
  * @property cloud the Nextcloud backup form
+ * @property smsTest the bank SMS test field
  */
 data class SettingsUiState(
     val isExporting: Boolean = false,
     val isImporting: Boolean = false,
     val message: String? = null,
-    val cloud: CloudFormState = CloudFormState()
+    val cloud: CloudFormState = CloudFormState(),
+    val smsTest: SmsTestState = SmsTestState()
 ) {
     /** True while any file operation runs; buttons are disabled meanwhile. */
     val isBusy: Boolean

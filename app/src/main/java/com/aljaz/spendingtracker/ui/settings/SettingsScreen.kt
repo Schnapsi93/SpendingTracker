@@ -27,6 +27,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 
 /**
  * Settings screen: CSV export and import, and the Nextcloud backup.
@@ -102,6 +112,13 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // ----- Bank SMS -----
+            BankSmsCard(
+                test = state.smsTest,
+                onTestTextChange = viewModel::onSmsTestTextChange,
+                onProcessTest = viewModel::onProcessSmsTestClick
+            )
 
             // ----- Nextcloud backup -----
             CloudBackupCard(
@@ -199,6 +216,87 @@ private fun CloudBackupCard(
             )
             form.message?.let { message ->
                 Text(text = message, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}
+
+
+/**
+ * Bank SMS card: permission status, a shortcut to grant it, and a field
+ * for testing any bank message.
+ */
+@Composable
+private fun BankSmsCard(
+    test: SmsTestState,
+    onTestTextChange: (String) -> Unit,
+    onProcessTest: () -> Unit
+) {
+    val context = LocalContext.current
+
+    // Permission state is Android-specific UI state, so it lives here.
+    var smsAllowed by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) ==
+                    PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted -> smsAllowed = granted }
+    )
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(text = "Bank SMS", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Card transactions from ${com.aljaz.spendingtracker.automation.parser.DhSmsParser.SENDER} " +
+                        "are added automatically. Messages from anyone else are ignored and never stored.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            if (smsAllowed) {
+                Text(text = "Status: allowed ✓", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                Text(text = "Status: not allowed", style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { permissionLauncher.launch(Manifest.permission.RECEIVE_SMS) }) {
+                        Text("Allow reading SMS")
+                    }
+                    // If Android stops showing the dialog (after refusing twice,
+                    // or for restricted settings), the permission is granted here instead.
+                    TextButton(onClick = {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.fromParts("package", context.packageName, null)
+                            )
+                        )
+                    }) {
+                        Text("App settings")
+                    }
+                }
+            }
+
+            Text(text = "Test with a message", style = MaterialTheme.typography.labelLarge)
+            OutlinedTextField(
+                value = test.text,
+                onValueChange = onTestTextChange,
+                label = { Text("Paste a bank SMS") },
+                minLines = 3,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedButton(
+                onClick = onProcessTest,
+                enabled = !test.isProcessing && test.text.isNotBlank()
+            ) {
+                Text(if (test.isProcessing) "Processing…" else "Process message")
+            }
+            test.result?.let { result ->
+                Text(text = result, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }

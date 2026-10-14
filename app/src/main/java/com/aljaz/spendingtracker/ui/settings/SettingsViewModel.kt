@@ -26,6 +26,11 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import com.aljaz.spendingtracker.automation.BankMessageProcessor
+import com.aljaz.spendingtracker.automation.BankMessageResult
+import com.aljaz.spendingtracker.automation.parser.DhSmsParser
+import com.aljaz.spendingtracker.core.MoneyFormatter
+import com.aljaz.spendingtracker.domain.model.TransactionSource
 
 /**
  * Logic behind the Settings screen: CSV export and import, and the
@@ -42,7 +47,8 @@ class SettingsViewModel @Inject constructor(
     private val backupSettings: BackupSettingsRepository,
     private val saveBackupSettings: SaveBackupSettingsUseCase,
     private val testCloudConnection: TestCloudConnectionUseCase,
-    private val runCloudBackup: RunCloudBackupUseCase
+    private val runCloudBackup: RunCloudBackupUseCase,
+    private val bankMessageProcessor: BankMessageProcessor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -131,7 +137,42 @@ class SettingsViewModel @Inject constructor(
             if (hidden > 0) append("\n…and $hidden more.")
         }
     }
+    // ---------- Bank SMS ----------
 
+    fun onSmsTestTextChange(value: String) =
+        _uiState.update { it.copy(smsTest = it.smsTest.copy(text = value, result = null)) }
+
+    /**
+     * Runs the pasted text through exactly the same steps as a real SMS
+     * from the bank: parse, categorize, save (or skip as duplicate).
+     */
+    fun onProcessSmsTestClick() {
+        val test = _uiState.value.smsTest
+        if (test.isProcessing || test.text.isBlank()) return
+
+        _uiState.update { it.copy(smsTest = it.smsTest.copy(isProcessing = true, result = null)) }
+
+        viewModelScope.launch {
+            val result = bankMessageProcessor.process(
+                sender = DhSmsParser.SENDER,
+                body = test.text,
+                source = TransactionSource.SMS
+            )
+            val message = when (result) {
+                is BankMessageResult.Saved -> {
+                    val t = result.transaction
+                    "Saved: ${MoneyFormatter.format(t.amountMinor, t.currency)} at ${t.title}" +
+                            " → ${result.categoryName ?: "Uncategorized (no rule matched)"}"
+                }
+                BankMessageResult.Duplicate -> "This transaction was already saved; skipped."
+                BankMessageResult.Unrecognized -> "Not recognized as a DH transaction message."
+                BankMessageResult.NotFromBank -> "The sender is not a known bank."
+            }
+            _uiState.update {
+                it.copy(smsTest = it.smsTest.copy(isProcessing = false, result = message))
+            }
+        }
+    }
     // ---------- Nextcloud backup ----------
 
     fun onCloudUrlChange(value: String) = updateCloud { it.copy(serverUrl = value, message = null) }

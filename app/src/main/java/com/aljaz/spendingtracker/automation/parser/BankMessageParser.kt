@@ -14,10 +14,17 @@ interface BankMessageParser {
     val name: String
 
     /**
+     * @param sender the SMS sender or notification source, as reported by Android
+     * @return true if messages from this sender belong to this parser
+     */
+    fun acceptsSender(sender: String): Boolean
+
+    /**
      * @param text the full message text
      * @param zone time zone of the dates written in the message
      * @return the extracted data, or null if this isn't a transaction
      *         message this parser understands (e.g. a verification code)
      */
+
     fun parse(text: String, zone: ZoneId = ZoneId.systemDefault()): ParsedBankMessage?
 }
