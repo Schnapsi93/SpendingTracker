@@ -10,6 +10,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import com.aljaz.spendingtracker.data.local.dao.CategoryDao
 
 /**
  * Tells Hilt how to build the database and its DAOs.
@@ -35,4 +36,9 @@ object DatabaseModule {
     @Provides
     fun provideTransactionDao(database: AppDatabase): TransactionDao =
         database.transactionDao()
+
+    /** Exposes the category DAO so it can be injected directly. */
+    @Provides
+    fun provideCategoryDao(database: AppDatabase): CategoryDao =
+        database.categoryDao()
 }

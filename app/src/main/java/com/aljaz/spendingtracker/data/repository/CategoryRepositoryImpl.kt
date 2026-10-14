@@ -1,0 +1,50 @@
+package com.aljaz.spendingtracker.data.repository
+
+import androidx.room.withTransaction
+import com.aljaz.spendingtracker.data.local.AppDatabase
+import com.aljaz.spendingtracker.data.local.dao.CategoryDao
+import com.aljaz.spendingtracker.data.local.dao.TransactionDao
+import com.aljaz.spendingtracker.data.mapper.toDomain
+import com.aljaz.spendingtracker.data.mapper.toEntity
+import com.aljaz.spendingtracker.domain.model.Category
+import com.aljaz.spendingtracker.domain.repository.CategoryRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+
+/** Room-backed implementation of [CategoryRepository]. */
+class CategoryRepositoryImpl @Inject constructor(
+    private val database: AppDatabase,
+    private val categoryDao: CategoryDao,
+    private val transactionDao: TransactionDao
+) : CategoryRepository {
+
+    override suspend fun add(category: Category): Long? {
+        val rowId = categoryDao.insert(category.toEntity())
+        return if (rowId == -1L) null else rowId
+    }
+
+    override suspend fun addAll(categories: List<Category>) =
+        categoryDao.insertAll(categories.map { it.toEntity() })
+
+    override suspend fun update(category: Category) =
+        categoryDao.update(category.toEntity())
+
+    override suspend fun delete(category: Category) {
+        // Both steps run as one database transaction: either both
+        // happen or neither does, so no transaction is ever left
+        // pointing at a category that no longer exists.
+        database.withTransaction {
+            transactionDao.clearCategory(category.id)
+            categoryDao.delete(category.toEntity())
+        }
+    }
+
+    override suspend fun getById(id: Long): Category? =
+        categoryDao.getById(id)?.toDomain()
+
+    override fun observeAll(): Flow<List<Category>> =
+        categoryDao.observeAll().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun count(): Int = categoryDao.count()
+}

@@ -52,4 +52,12 @@ interface TransactionDao {
                 "ORDER BY timestamp DESC"
     )
     fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<TransactionEntity>>
+
+
+    /**
+     * Makes every transaction in a category uncategorized.
+     * Used before deleting that category.
+     */
+    @Query("UPDATE transactions SET categoryId = NULL WHERE categoryId = :categoryId")
+    suspend fun clearCategory(categoryId: Long)
 }

@@ -7,6 +7,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import com.aljaz.spendingtracker.data.repository.CategoryRepositoryImpl
+import com.aljaz.spendingtracker.domain.repository.CategoryRepository
 
 /**
  * Connects repository interfaces to their implementations.
@@ -23,4 +25,12 @@ abstract class RepositoryModule {
     abstract fun bindTransactionRepository(
         impl: TransactionRepositoryImpl
     ): TransactionRepository
+
+
+    /** When code asks for [CategoryRepository], provide the Room version. */
+    @Binds
+    @Singleton
+    abstract fun bindCategoryRepository(
+        impl: CategoryRepositoryImpl
+    ): CategoryRepository
 }
