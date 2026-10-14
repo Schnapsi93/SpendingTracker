@@ -1,5 +1,7 @@
 package com.aljaz.spendingtracker.core
 
+import java.math.BigDecimal
+
 /**
  * Converts user-typed amounts into minor units (cents).
  */
@@ -30,4 +32,11 @@ object MoneyParser {
             null // number too large to store
         }
     }
+
+    /**
+     * Turns minor units back into plain text for an input field,
+     * e.g. 1250 becomes "12.50". No currency symbol or grouping.
+     */
+    fun formatForInput(amountMinor: Long): String =
+        BigDecimal.valueOf(amountMinor, 2).toPlainString()
 }

@@ -33,6 +33,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import androidx.compose.foundation.clickable
 
 /** Currency used for the totals until multi-currency support exists. */
 private const val DISPLAY_CURRENCY = "EUR"
@@ -46,6 +47,7 @@ private const val DISPLAY_CURRENCY = "EUR"
 @Composable
 fun HomeScreen(
     onAddTransactionClick: () -> Unit,
+    onTransactionClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -83,7 +85,10 @@ fun HomeScreen(
                     contentPadding = PaddingValues(bottom = 88.dp)
                 ) {
                     items(items = state.transactions, key = { it.id }) { transaction ->
-                        TransactionRow(transaction)
+                        TransactionRow(
+                            transaction = transaction,
+                            onClick = { onTransactionClick(transaction.id) }
+                        )
                         HorizontalDivider()
                     }
                 }
@@ -141,9 +146,12 @@ private fun SummaryLine(label: String, amountMinor: Long) {
     }
 }
 
-/** One transaction in the list: title and date on the left, amount on the right. */
+/** One transaction in the list. Tapping it opens the edit form. */
 @Composable
-private fun TransactionRow(transaction: Transaction) {
+private fun TransactionRow(
+    transaction: Transaction,
+    onClick: () -> Unit
+) {
     val isIncome = transaction.type == TransactionType.INCOME
     val sign = if (isIncome) "+" else "-"
     val amountColor =
@@ -157,6 +165,7 @@ private fun TransactionRow(transaction: Transaction) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)   // makes the whole row tappable
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

@@ -9,6 +9,11 @@ import org.junit.Test
 class MoneyParserTest {
 
     @Test
+    fun formatForInputRoundTrips() {
+        assertEquals("12.50", MoneyParser.formatForInput(1250))
+        assertEquals(1250L, MoneyParser.parseToMinor(MoneyParser.formatForInput(1250)))
+    }
+
     fun parsesDotAndCommaDecimals() {
         assertEquals(1250L, MoneyParser.parseToMinor("12.50"))
         assertEquals(1250L, MoneyParser.parseToMinor("12,50"))

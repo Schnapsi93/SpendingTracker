@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -15,6 +16,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -26,13 +28,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.aljaz.spendingtracker.domain.model.TransactionType
 
 /**
- * Screen for adding a transaction manually.
+ * Form for adding a new transaction or editing an existing one.
  *
  * It only draws the state from [AddTransactionViewModel] and forwards
  * user input back to it. It contains no business logic.
  *
- * @param onBackClick called when the screen should close, either because
- *        the user cancelled or because the transaction was saved
+ * @param onBackClick called when the screen should close: the user
+ *        cancelled, or a save or delete finished
  * @param viewModel provided by Hilt automatically
  */
 @Composable
@@ -43,9 +45,23 @@ fun AddTransactionScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    // Close the screen once the ViewModel reports a successful save.
-    LaunchedEffect(state.saved) {
-        if (state.saved) onBackClick()
+    // Close the screen once a save or delete has finished.
+    LaunchedEffect(state.isFinished) {
+        if (state.isFinished) onBackClick()
+    }
+
+    if (state.showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = viewModel::onDeleteDismiss,
+            title = { Text("Delete transaction?") },
+            text = { Text("This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = viewModel::onDeleteConfirm) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::onDeleteDismiss) { Text("Cancel") }
+            }
+        )
     }
 
     Scaffold(modifier = modifier) { innerPadding ->
@@ -57,7 +73,7 @@ fun AddTransactionScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Add transaction",
+                text = if (state.isEditing) "Edit transaction" else "Add transaction",
                 style = MaterialTheme.typography.headlineSmall
             )
 
@@ -109,6 +125,16 @@ fun AddTransactionScreen(
                     enabled = !state.isSaving
                 ) {
                     Text("Save")
+                }
+            }
+
+            // Only existing transactions can be deleted.
+            if (state.isEditing) {
+                TextButton(
+                    onClick = viewModel::onDeleteClick,
+                    enabled = !state.isSaving
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             }
         }

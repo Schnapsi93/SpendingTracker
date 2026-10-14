@@ -2,9 +2,11 @@ package com.aljaz.spendingtracker.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.aljaz.spendingtracker.ui.home.HomeScreen
 import com.aljaz.spendingtracker.ui.transactions.AddTransactionScreen
 
@@ -28,13 +30,26 @@ fun AppNavHost(modifier: Modifier = Modifier) {
             HomeScreen(
                 onAddTransactionClick = {
                     navController.navigate(Screen.AddTransaction.route)
+                },
+                onTransactionClick = { id ->
+                    navController.navigate(Screen.EditTransaction.createRoute(id))
                 }
             )
         }
+
+        // Add mode: no id argument, so the form starts empty.
         composable(Screen.AddTransaction.route) {
-            AddTransactionScreen(
-                onBackClick = { navController.popBackStack() }
+            AddTransactionScreen(onBackClick = { navController.popBackStack() })
+        }
+
+        // Edit mode: the id argument tells the ViewModel what to load.
+        composable(
+            route = Screen.EditTransaction.route,
+            arguments = listOf(
+                navArgument(TRANSACTION_ID_ARG) { type = NavType.LongType }
             )
+        ) {
+            AddTransactionScreen(onBackClick = { navController.popBackStack() })
         }
     }
 }

@@ -3,18 +3,21 @@ package com.aljaz.spendingtracker.ui.transactions
 import com.aljaz.spendingtracker.domain.model.TransactionType
 
 /**
- * Everything the Add Transaction screen shows at one moment.
+ * Everything the add/edit form shows at one moment.
  *
  * The screen only draws this state. It never changes it directly, only
  * through ViewModel functions. This keeps behavior predictable.
  *
+ * @property isEditing true when an existing transaction is being edited
  * @property amountText what the user has typed in the amount field
  * @property errorMessage a validation or save error to show, or null
- * @property isSaving true while the save is running
- * @property saved becomes true after a successful save, telling the
- *           screen to close itself
+ * @property isSaving true while a save or delete is running
+ * @property showDeleteConfirm true while the "Delete?" dialog is open
+ * @property isFinished becomes true after a successful save or delete,
+ *           telling the screen to close itself
  */
 data class AddTransactionUiState(
+    val isEditing: Boolean = false,
     val type: TransactionType = TransactionType.EXPENSE,
     val amountText: String = "",
     val title: String = "",
@@ -22,5 +25,6 @@ data class AddTransactionUiState(
     val timestamp: Long = System.currentTimeMillis(),
     val errorMessage: String? = null,
     val isSaving: Boolean = false,
-    val saved: Boolean = false
+    val showDeleteConfirm: Boolean = false,
+    val isFinished: Boolean = false
 )
