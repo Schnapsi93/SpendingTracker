@@ -49,6 +49,7 @@ class HomeViewModel @Inject constructor(
         HomeUiState(
             month = month,
             summary = overview.summary,
+            expenseByCategory = overview.expenseByCategory,
             transactions = overview.transactions,
             categoriesById = categories.associateBy { it.id }
         )

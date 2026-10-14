@@ -1,6 +1,7 @@
 package com.aljaz.spendingtracker.domain.usecase
 
 import com.aljaz.spendingtracker.core.toEpochMillisRange
+import com.aljaz.spendingtracker.domain.model.CategoryTotal
 import com.aljaz.spendingtracker.domain.model.MonthOverview
 import com.aljaz.spendingtracker.domain.model.MonthSummary
 import com.aljaz.spendingtracker.domain.model.TransactionType
@@ -11,8 +12,8 @@ import java.time.YearMonth
 import javax.inject.Inject
 
 /**
- * Streams the transactions and totals for one calendar month.
- * Emits a new value every time the underlying data changes.
+ * Streams the transactions, totals and per-category spending for one
+ * calendar month. Emits a new value every time the underlying data changes.
  */
 class ObserveMonthOverviewUseCase @Inject constructor(
     private val repository: TransactionRepository
@@ -23,16 +24,26 @@ class ObserveMonthOverviewUseCase @Inject constructor(
         val (start, end) = month.toEpochMillisRange()
 
         return repository.observeBetween(start, end).map { transactions ->
+            val expenses = transactions.filter { it.type == TransactionType.EXPENSE }
             val income = transactions
                 .filter { it.type == TransactionType.INCOME }
                 .sumOf { it.amountMinor }
-            val expense = transactions
-                .filter { it.type == TransactionType.EXPENSE }
-                .sumOf { it.amountMinor }
+
+            // Group expenses by category (null = uncategorized) and add them up.
+            val expenseByCategory = expenses
+                .groupBy { it.categoryId }
+                .map { (categoryId, items) ->
+                    CategoryTotal(categoryId, items.sumOf { it.amountMinor })
+                }
+                .sortedByDescending { it.totalMinor }
 
             MonthOverview(
-                summary = MonthSummary(income, expense),
-                transactions = transactions
+                summary = MonthSummary(
+                    totalIncomeMinor = income,
+                    totalExpenseMinor = expenses.sumOf { it.amountMinor }
+                ),
+                transactions = transactions,
+                expenseByCategory = expenseByCategory
             )
         }
     }

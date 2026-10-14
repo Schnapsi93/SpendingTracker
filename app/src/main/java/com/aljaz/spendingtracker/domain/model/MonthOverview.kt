@@ -15,8 +15,24 @@ data class MonthSummary(
         get() = totalIncomeMinor - totalExpenseMinor
 }
 
-/** Everything the Home screen needs for one month. */
+/**
+ * How much was spent in one category during a month.
+ *
+ * @property categoryId the category, or null for uncategorized transactions
+ * @property totalMinor sum of the expenses, in minor units
+ */
+data class CategoryTotal(
+    val categoryId: Long?,
+    val totalMinor: Long
+)
+
+/**
+ * Everything the Home screen needs for one month.
+ *
+ * @property expenseByCategory expense totals per category, largest first
+ */
 data class MonthOverview(
     val summary: MonthSummary,
-    val transactions: List<Transaction>
+    val transactions: List<Transaction>,
+    val expenseByCategory: List<CategoryTotal>
 )
