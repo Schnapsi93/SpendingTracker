@@ -34,6 +34,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import androidx.compose.foundation.clickable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.aljaz.spendingtracker.ui.components.MonthPickerDialog
 
 /** Currency used for the totals until multi-currency support exists. */
 private const val DISPLAY_CURRENCY = "EUR"
@@ -69,8 +73,8 @@ fun HomeScreen(
             MonthHeader(
                 month = state.month,
                 onPreviousClick = viewModel::onPreviousMonth,
-                onNextClick = viewModel::onNextMonth
-            )
+                onNextClick = viewModel::onNextMonth,
+                onMonthSelected = viewModel::onMonthSelected)
             SummaryCard(summary = state.summary)
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -97,24 +101,51 @@ fun HomeScreen(
     }
 }
 
-/** Month title with previous / next buttons. */
+/**
+ * Month title with previous / next arrows.
+ * Tapping the title opens [MonthPickerDialog] for jumping to far-away
+ * months or back to today.
+ */
 @Composable
 private fun MonthHeader(
     month: YearMonth,
     onPreviousClick: () -> Unit,
-    onNextClick: () -> Unit
+    onNextClick: () -> Unit,
+    onMonthSelected: (YearMonth) -> Unit
 ) {
+    // Whether the picker dialog is open. This is purely visual state,
+    // so it lives here rather than in the ViewModel.
+    var showPicker by rememberSaveable { mutableStateOf(false) }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
         TextButton(onClick = onPreviousClick) { Text("<") }
-        Text(
-            text = month.format(DateTimeFormatter.ofPattern("LLLL yyyy")),
-            style = MaterialTheme.typography.titleLarge
-        )
+
+        // The month name takes all the free space and opens the picker.
+        TextButton(
+            onClick = { showPicker = true },
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = month.format(DateTimeFormatter.ofPattern("LLLL yyyy")),
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
+
         TextButton(onClick = onNextClick) { Text(">") }
+    }
+
+    if (showPicker) {
+        MonthPickerDialog(
+            initialMonth = month,
+            onMonthSelected = { picked ->
+                showPicker = false
+                onMonthSelected(picked)
+            },
+            onDismiss = { showPicker = false }
+        )
     }
 }
 

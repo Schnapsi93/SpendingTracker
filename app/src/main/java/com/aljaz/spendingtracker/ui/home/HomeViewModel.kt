@@ -53,4 +53,9 @@ class HomeViewModel @Inject constructor(
 
     /** Moves the display one month forward. */
     fun onNextMonth() = selectedMonth.update { it.plusMonths(1) }
+
+    /** Jumps directly to any month, e.g. one picked in the month selector. */
+    fun onMonthSelected(month: YearMonth) {
+        selectedMonth.value = month
+    }
 }
