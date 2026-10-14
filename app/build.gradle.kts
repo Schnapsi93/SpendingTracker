@@ -60,6 +60,9 @@ dependencies {
     // Navigation between screens
     implementation(libs.androidx.navigation.compose)
 
+    // Networking: uploads to Nextcloud over WebDAV
+    implementation(libs.okhttp)
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

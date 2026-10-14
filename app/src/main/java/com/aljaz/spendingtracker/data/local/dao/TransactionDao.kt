@@ -53,6 +53,10 @@ interface TransactionDao {
     )
     fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<TransactionEntity>>
 
+    /** Every transaction, oldest first. Used for exports and backups. */
+    @Query("SELECT * FROM transactions ORDER BY timestamp ASC")
+    suspend fun getAll(): List<TransactionEntity>
+
 
     /**
      * Makes every transaction in a category uncategorized.

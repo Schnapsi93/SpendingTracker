@@ -1,0 +1,188 @@
+package com.aljaz.spendingtracker.ui.settings
+
+import android.content.Context
+import android.net.Uri
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.aljaz.spendingtracker.core.AppResult
+import com.aljaz.spendingtracker.domain.backup.BackupSettingsRepository
+import com.aljaz.spendingtracker.domain.export.ImportSummary
+import com.aljaz.spendingtracker.domain.usecase.ExportHistoryUseCase
+import com.aljaz.spendingtracker.domain.usecase.ImportHistoryUseCase
+import com.aljaz.spendingtracker.domain.usecase.SaveBackupSettingsUseCase
+import com.aljaz.spendingtracker.domain.usecase.TestCloudConnectionUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import javax.inject.Inject
+
+/**
+ * Logic behind the Settings screen: CSV export and import, and the
+ * Nextcloud backup settings.
+ *
+ * Uses the application context (never an Activity) to open the files
+ * the user picked, so the ViewModel can't leak a screen.
+ */
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val exportHistory: ExportHistoryUseCase,
+    private val importHistory: ImportHistoryUseCase,
+    private val backupSettings: BackupSettingsRepository,
+    private val saveBackupSettings: SaveBackupSettingsUseCase,
+    private val testCloudConnection: TestCloudConnectionUseCase
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(SettingsUiState())
+    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch { refreshCloudForm() }
+    }
+
+    // ---------- Export ----------
+
+    /** File name proposed in the "Save as" picker, e.g. "spending_2026-10-14.csv". */
+    fun suggestedFileName(): String = "spending_${LocalDate.now()}.csv"
+
+    /**
+     * Called with the location the user picked in the "Save as" picker.
+     *
+     * @param uri the chosen file, or null if the user cancelled
+     */
+    fun onExportDestinationChosen(uri: Uri?) {
+        if (uri == null) return // cancelled; nothing to do
+
+        _uiState.update { it.copy(isExporting = true, message = null) }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = try {
+                // "wt" = write and truncate, so overwriting an old file
+                // never leaves leftover lines at the end.
+                context.contentResolver.openOutputStream(uri, "wt")
+                    ?.use { stream -> exportHistory(stream) }
+                    ?: AppResult.Error("Could not open the chosen file.")
+            } catch (e: Exception) {
+                AppResult.Error("Export failed: ${e.message}")
+            }
+
+            val message = when (result) {
+                is AppResult.Success -> "Exported ${result.data} transactions."
+                is AppResult.Error -> result.message
+            }
+            _uiState.update { it.copy(isExporting = false, message = message) }
+        }
+    }
+
+    // ---------- Import ----------
+
+    /**
+     * Called with the file the user picked for importing.
+     *
+     * @param uri the chosen file, or null if the user cancelled
+     */
+    fun onImportFileChosen(uri: Uri?) {
+        if (uri == null) return // cancelled; nothing to do
+
+        _uiState.update { it.copy(isImporting = true, message = null) }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = try {
+                context.contentResolver.openInputStream(uri)
+                    ?.use { stream -> importHistory(stream) }
+                    ?: AppResult.Error("Could not open the chosen file.")
+            } catch (e: Exception) {
+                AppResult.Error("Import failed: ${e.message}")
+            }
+
+            val message = when (result) {
+                is AppResult.Success -> describe(result.data)
+                is AppResult.Error -> result.message
+            }
+            _uiState.update { it.copy(isImporting = false, message = message) }
+        }
+    }
+
+    /** Builds the message shown after an import, listing at most 5 errors. */
+    private fun describe(summary: ImportSummary): String = buildString {
+        append("Imported ${summary.imported} transactions.")
+        if (summary.skippedDuplicates > 0) {
+            append(" Skipped ${summary.skippedDuplicates} already in the app.")
+        }
+        if (summary.createdCategories > 0) {
+            append(" Created ${summary.createdCategories} new categories.")
+        }
+        if (summary.errors.isNotEmpty()) {
+            append("\n\n${summary.errors.size} rows could not be read:")
+            summary.errors.take(MAX_ERRORS_SHOWN).forEach { append("\n• $it") }
+            val hidden = summary.errors.size - MAX_ERRORS_SHOWN
+            if (hidden > 0) append("\n…and $hidden more.")
+        }
+    }
+
+    // ---------- Nextcloud backup ----------
+
+    fun onCloudUrlChange(value: String) = updateCloud { it.copy(serverUrl = value, message = null) }
+
+    fun onCloudUsernameChange(value: String) = updateCloud { it.copy(username = value, message = null) }
+
+    fun onCloudPasswordChange(value: String) = updateCloud { it.copy(password = value, message = null) }
+
+    fun onCloudFolderChange(value: String) = updateCloud { it.copy(folder = value, message = null) }
+
+    /** Saves the form; if that works, tests the connection with the saved settings. */
+    fun onSaveAndTestClick() {
+        val form = _uiState.value.cloud
+        if (form.isWorking) return // ignore double taps
+
+        updateCloud { it.copy(isWorking = true, message = null) }
+
+        viewModelScope.launch {
+            val saved = saveBackupSettings(
+                serverUrl = form.serverUrl,
+                username = form.username,
+                folder = form.folder,
+                newPassword = form.password
+            )
+            if (saved is AppResult.Error) {
+                // Keep what the user typed so they can correct it.
+                updateCloud { it.copy(isWorking = false, message = saved.message) }
+                return@launch
+            }
+
+            val message = when (val test = testCloudConnection()) {
+                is AppResult.Success -> "Connected. The backup folder is ready."
+                is AppResult.Error -> "Saved, but the connection failed: ${test.message}"
+            }
+            refreshCloudForm() // shows the cleaned-up values and clears the password field
+            updateCloud { it.copy(isWorking = false, message = message) }
+        }
+    }
+
+    /** Loads the saved settings into the form. The password field always starts empty. */
+    private suspend fun refreshCloudForm() {
+        val settings = backupSettings.load()
+        updateCloud {
+            it.copy(
+                serverUrl = settings.serverUrl,
+                username = settings.username,
+                folder = settings.folder,
+                password = "",
+                hasSavedPassword = settings.hasPassword
+            )
+        }
+    }
+
+    private fun updateCloud(change: (CloudFormState) -> CloudFormState) =
+        _uiState.update { it.copy(cloud = change(it.cloud)) }
+
+    private companion object {
+        const val MAX_ERRORS_SHOWN = 5
+    }
+}

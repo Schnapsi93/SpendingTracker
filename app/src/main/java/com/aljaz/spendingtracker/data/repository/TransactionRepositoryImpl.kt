@@ -40,4 +40,8 @@ class TransactionRepositoryImpl @Inject constructor(
     ): Flow<List<Transaction>> =
         dao.observeBetween(startMillis, endMillis)
             .map { entities -> entities.map { it.toDomain() } }
+
+    override suspend fun getAll(): List<Transaction> =
+        dao.getAll().map { it.toDomain() }
+
 }

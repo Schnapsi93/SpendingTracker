@@ -31,6 +31,20 @@ object CsvFormat {
     /** How dates are written, e.g. "2026-10-11 19:38". */
     val DATE_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
+
+    /**
+     * Date formats accepted when importing. The first is the app's own;
+     * the others cover files re-saved by Excel or LibreOffice with
+     * Slovenian/European settings.
+     */
+    val IMPORT_DATE_TIME_FORMATS: List<DateTimeFormatter> = listOf(
+        DATE_TIME_FORMAT,
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
+        DateTimeFormatter.ofPattern("d.M.yyyy H:mm"),
+        DateTimeFormatter.ofPattern("d.M.yyyy H:mm:ss"),
+        DateTimeFormatter.ofPattern("d. M. yyyy H:mm")
+    )
+
     /** Text used in the Type column. */
     const val TYPE_EXPENSE = "Expense"
     const val TYPE_INCOME = "Income"

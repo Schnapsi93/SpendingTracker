@@ -27,4 +27,8 @@ sealed class Screen(val route: String) {
 
     /** List of categories, where they can be added, edited and deleted. */
     data object Categories : Screen("categories")
+
+
+    /** App settings: export, and later the cloud backup. */
+    data object Settings : Screen("settings")
 }

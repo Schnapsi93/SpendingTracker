@@ -62,6 +62,7 @@ private const val DISPLAY_CURRENCY = "EUR"
  * @param onAddTransactionClick called when the user taps the add button
  * @param onTransactionClick called with a transaction's id when its row is tapped
  * @param onCategoriesClick called when the user wants to manage categories
+ * @param onSettingsClick called when the user wants to open the settings
  * @param viewModel provided by Hilt automatically
  */
 @Composable
@@ -69,6 +70,7 @@ fun HomeScreen(
     onAddTransactionClick: () -> Unit,
     onTransactionClick: (Long) -> Unit,
     onCategoriesClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -98,6 +100,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                 )
                 TextButton(onClick = onCategoriesClick) { Text("Categories") }
+                TextButton(onClick = onSettingsClick) { Text("Settings") }
             }
 
             // The header stays fixed at the top; everything below scrolls.

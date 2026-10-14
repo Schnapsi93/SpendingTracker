@@ -10,6 +10,7 @@ import androidx.navigation.navArgument
 import com.aljaz.spendingtracker.ui.categories.CategoriesScreen
 import com.aljaz.spendingtracker.ui.home.HomeScreen
 import com.aljaz.spendingtracker.ui.transactions.AddTransactionScreen
+import com.aljaz.spendingtracker.ui.settings.SettingsScreen
 
 /**
  * The app's navigation graph: which screen is shown for which route,
@@ -37,6 +38,9 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                 },
                 onCategoriesClick = {
                     navController.navigate(Screen.Categories.route)
+                },
+                onSettingsClick = {
+                    navController.navigate(Screen.Settings.route)
                 }
             )
         }
@@ -59,5 +63,9 @@ fun AppNavHost(modifier: Modifier = Modifier) {
         composable(Screen.Categories.route) {
             CategoriesScreen(onBackClick = { navController.popBackStack() })
         }
+
+        composable(Screen.Settings.route) {
+            SettingsScreen(onBackClick = { navController.popBackStack() })
+            }
     }
 }

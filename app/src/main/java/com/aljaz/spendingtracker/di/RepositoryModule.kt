@@ -9,6 +9,10 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 import com.aljaz.spendingtracker.data.repository.CategoryRepositoryImpl
 import com.aljaz.spendingtracker.domain.repository.CategoryRepository
+import com.aljaz.spendingtracker.data.csv.CsvHistoryExporter
+import com.aljaz.spendingtracker.domain.export.HistoryExporter
+import com.aljaz.spendingtracker.data.csv.CsvHistoryImporter
+import com.aljaz.spendingtracker.domain.export.HistoryImporter
 
 /**
  * Connects repository interfaces to their implementations.
@@ -33,4 +37,20 @@ abstract class RepositoryModule {
     abstract fun bindCategoryRepository(
         impl: CategoryRepositoryImpl
     ): CategoryRepository
+
+
+    /** When code asks for a [HistoryExporter], provide the CSV version. */
+    @Binds
+    @Singleton
+    abstract fun bindHistoryExporter(
+        impl: CsvHistoryExporter
+    ): HistoryExporter
+
+
+    /** When code asks for a [HistoryImporter], provide the CSV version. */
+    @Binds
+    @Singleton
+    abstract fun bindHistoryImporter(
+        impl: CsvHistoryImporter
+    ): HistoryImporter
 }

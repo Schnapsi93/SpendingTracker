@@ -33,4 +33,7 @@ interface TransactionRepository {
      * @param endMillis range end (exclusive), UTC epoch millis
      */
     fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<Transaction>>
+
+    /** Every transaction, oldest first. Used for exports and backups. */
+    suspend fun getAll(): List<Transaction>
 }
