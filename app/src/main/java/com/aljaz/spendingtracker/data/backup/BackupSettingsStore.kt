@@ -53,11 +53,21 @@ class BackupSettingsStore @Inject constructor(
         }
     }
 
+
+    override suspend fun lastBackupAt(): Long? = withContext(Dispatchers.IO) {
+        if (prefs.contains(KEY_LAST_BACKUP)) prefs.getLong(KEY_LAST_BACKUP, 0L) else null
+    }
+
+    override suspend fun setLastBackupAt(epochMillis: Long) = withContext(Dispatchers.IO) {
+        prefs.edit().putLong(KEY_LAST_BACKUP, epochMillis).apply()
+    }
+
     private companion object {
         const val PREFS_NAME = "backup_settings"
         const val KEY_URL = "server_url"
         const val KEY_USERNAME = "username"
         const val KEY_FOLDER = "folder"
         const val KEY_PASSWORD = "password_encrypted"
+        const val KEY_LAST_BACKUP = "last_backup_at"
     }
 }

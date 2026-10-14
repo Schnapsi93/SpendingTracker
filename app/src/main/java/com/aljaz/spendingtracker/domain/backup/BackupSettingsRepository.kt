@@ -18,4 +18,11 @@ interface BackupSettingsRepository {
      *         incomplete or the stored password can't be decrypted
      */
     suspend fun loadCredentials(): CloudCredentials?
+
+
+    /** When the last backup succeeded (epoch millis), or null if never. */
+    suspend fun lastBackupAt(): Long?
+
+    /** Records a successful backup. */
+    suspend fun setLastBackupAt(epochMillis: Long)
 }

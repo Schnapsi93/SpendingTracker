@@ -9,6 +9,8 @@ import com.aljaz.spendingtracker.domain.backup.BackupSettings
  *           "keep the one already saved"
  * @property hasSavedPassword true when an app password is stored
  * @property isWorking true while saving and testing
+ * @property isBackingUp true while "Back up now" is running
+ * @property lastBackupText when the last backup succeeded, formatted, or null if never
  * @property message result of the last test, or null
  */
 data class CloudFormState(
@@ -18,6 +20,8 @@ data class CloudFormState(
     val folder: String = BackupSettings.DEFAULT_FOLDER,
     val hasSavedPassword: Boolean = false,
     val isWorking: Boolean = false,
+    val isBackingUp: Boolean = false,
+    val lastBackupText: String? = null,
     val message: String? = null
 )
 

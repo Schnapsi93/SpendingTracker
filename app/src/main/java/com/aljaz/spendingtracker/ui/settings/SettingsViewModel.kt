@@ -21,6 +21,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
+import com.aljaz.spendingtracker.domain.usecase.RunCloudBackupUseCase
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /**
  * Logic behind the Settings screen: CSV export and import, and the
@@ -36,7 +41,8 @@ class SettingsViewModel @Inject constructor(
     private val importHistory: ImportHistoryUseCase,
     private val backupSettings: BackupSettingsRepository,
     private val saveBackupSettings: SaveBackupSettingsUseCase,
-    private val testCloudConnection: TestCloudConnectionUseCase
+    private val testCloudConnection: TestCloudConnectionUseCase,
+    private val runCloudBackup: RunCloudBackupUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -139,7 +145,7 @@ class SettingsViewModel @Inject constructor(
     /** Saves the form; if that works, tests the connection with the saved settings. */
     fun onSaveAndTestClick() {
         val form = _uiState.value.cloud
-        if (form.isWorking) return // ignore double taps
+        if (form.isWorking || form.isBackingUp) return // ignore double taps
 
         updateCloud { it.copy(isWorking = true, message = null) }
 
@@ -165,20 +171,47 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** Uploads a backup right away, regardless of the monthly schedule. */
+    fun onBackupNowClick() {
+        val form = _uiState.value.cloud
+        if (form.isWorking || form.isBackingUp) return // ignore double taps
+
+        updateCloud { it.copy(isBackingUp = true, message = null) }
+
+        viewModelScope.launch {
+            val message = when (val result = runCloudBackup()) {
+                is AppResult.Success ->
+                    "Backed up ${result.data} transactions to ${RunCloudBackupUseCase.BACKUP_FILE_NAME}."
+                is AppResult.Error -> "Backup failed: ${result.message}"
+            }
+            refreshCloudForm() // updates "Last backup"
+            updateCloud { it.copy(isBackingUp = false, message = message) }
+        }
+    }
+
     /** Loads the saved settings into the form. The password field always starts empty. */
     private suspend fun refreshCloudForm() {
         val settings = backupSettings.load()
+        val lastBackup = backupSettings.lastBackupAt()?.let { formatTime(it) }
         updateCloud {
             it.copy(
                 serverUrl = settings.serverUrl,
                 username = settings.username,
                 folder = settings.folder,
                 password = "",
-                hasSavedPassword = settings.hasPassword
+                hasSavedPassword = settings.hasPassword,
+                lastBackupText = lastBackup
             )
         }
     }
 
+    /** e.g. "Oct 14, 2026, 22:15", following the phone's language. */
+    private fun formatTime(epochMillis: Long): String =
+        Instant.ofEpochMilli(epochMillis)
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))
+
+    /** Applies a change to the Nextcloud form state. */
     private fun updateCloud(change: (CloudFormState) -> CloudFormState) =
         _uiState.update { it.copy(cloud = change(it.cloud)) }
 

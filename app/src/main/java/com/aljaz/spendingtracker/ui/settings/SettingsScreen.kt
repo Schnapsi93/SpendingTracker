@@ -110,13 +110,17 @@ fun SettingsScreen(
                 onUsernameChange = viewModel::onCloudUsernameChange,
                 onPasswordChange = viewModel::onCloudPasswordChange,
                 onFolderChange = viewModel::onCloudFolderChange,
-                onSaveAndTest = viewModel::onSaveAndTestClick
+                onSaveAndTest = viewModel::onSaveAndTestClick,
+                onBackupNow = viewModel::onBackupNowClick
             )
         }
     }
 }
 
-/** The Nextcloud settings form with its "Save and test connection" button. */
+/**
+ * The Nextcloud settings form, the backup buttons, and the time of the
+ * last successful backup.
+ */
 @Composable
 private fun CloudBackupCard(
     form: CloudFormState,
@@ -124,8 +128,11 @@ private fun CloudBackupCard(
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onFolderChange: (String) -> Unit,
-    onSaveAndTest: () -> Unit
+    onSaveAndTest: () -> Unit,
+    onBackupNow: () -> Unit
 ) {
+    val isBusy = form.isWorking || form.isBackingUp
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -133,7 +140,9 @@ private fun CloudBackupCard(
         ) {
             Text(text = "Nextcloud backup", style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "Use an app password (Nextcloud → Personal settings → Security), " +
+                text = "Backs up your complete history once a month as " +
+                        "spending_backup.csv, whenever the phone is online. " +
+                        "Use an app password (Nextcloud → Personal settings → Security), " +
                         "not your main password.",
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -174,9 +183,20 @@ private fun CloudBackupCard(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Button(onClick = onSaveAndTest, enabled = !form.isWorking) {
-                Text(if (form.isWorking) "Connecting…" else "Save and test connection")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onSaveAndTest, enabled = !isBusy) {
+                    Text(if (form.isWorking) "Connecting…" else "Save and test")
+                }
+                // Only possible once a password has been saved.
+                OutlinedButton(onClick = onBackupNow, enabled = !isBusy && form.hasSavedPassword) {
+                    Text(if (form.isBackingUp) "Backing up…" else "Back up now")
+                }
             }
+
+            Text(
+                text = "Last backup: ${form.lastBackupText ?: "never"}",
+                style = MaterialTheme.typography.bodySmall
+            )
             form.message?.let { message ->
                 Text(text = message, style = MaterialTheme.typography.bodyMedium)
             }

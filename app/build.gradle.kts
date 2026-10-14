@@ -63,6 +63,9 @@ dependencies {
     // Networking: uploads to Nextcloud over WebDAV
     implementation(libs.okhttp)
 
+    // Background jobs: the monthly cloud backup
+    implementation(libs.androidx.work.runtime.ktx)
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

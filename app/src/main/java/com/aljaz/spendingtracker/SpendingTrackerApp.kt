@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.aljaz.spendingtracker.data.backup.BackupScheduler
 
 /**
  * Application entry point.
@@ -31,5 +32,6 @@ class SpendingTrackerApp : Application() {
     override fun onCreate() {
         super.onCreate() // Hilt injects the fields above here
         appScope.launch { ensureDefaultCategories() }
+        BackupScheduler.schedule(this) // daily check for the monthly cloud backup
     }
 }
