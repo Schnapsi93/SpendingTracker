@@ -15,6 +15,7 @@ import com.aljaz.spendingtracker.ui.review.ReviewScreen
 import com.aljaz.spendingtracker.ui.rules.RulesScreen
 import com.aljaz.spendingtracker.ui.search.SearchScreen
 import androidx.compose.runtime.LaunchedEffect
+import com.aljaz.spendingtracker.ui.charts.ChartsScreen
 
 /**
  * The app's navigation graph: which screen is shown for which route,
@@ -55,6 +56,9 @@ fun AppNavHost(
                 },
                 onSearchClick = {
                     navController.navigate(Screen.Search.route)
+                },
+                onChartsClick = { month ->
+                    navController.navigate(Screen.Charts.createRoute(month))
                 }
 
             )
@@ -108,6 +112,21 @@ fun AppNavHost(
                     navController.navigate(Screen.EditTransaction.createRoute(id))
                 }
             )
+        }
+
+
+        // The month argument is optional: "charts" alone opens the current period.
+        composable(
+            route = Screen.Charts.route,
+            arguments = listOf(
+                navArgument(CHARTS_MONTH_ARG) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
+            ChartsScreen(onBackClick = { navController.popBackStack() })
         }
     }
 

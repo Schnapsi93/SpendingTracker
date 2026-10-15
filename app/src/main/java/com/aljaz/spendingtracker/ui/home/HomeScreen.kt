@@ -17,15 +17,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
@@ -37,13 +35,9 @@ import com.aljaz.spendingtracker.domain.model.Category
 import com.aljaz.spendingtracker.domain.model.CategoryTotal
 import com.aljaz.spendingtracker.domain.model.MonthSummary
 import com.aljaz.spendingtracker.ui.components.ColorDot
-import com.aljaz.spendingtracker.ui.components.MonthPickerDialog
+import com.aljaz.spendingtracker.ui.components.PeriodHeader
 import com.aljaz.spendingtracker.ui.components.TransactionRow
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
-import androidx.compose.material3.OutlinedButton
-import com.aljaz.spendingtracker.core.periodEndInclusive
-import com.aljaz.spendingtracker.core.periodStart
 
 
 /** Currency used for the totals until multi-currency support exists. */
@@ -59,6 +53,7 @@ private const val DISPLAY_CURRENCY = "EUR"
  * @param onSettingsClick called when the user wants to open the settings
  * @param onReviewClick called when the user opens the review queue
  * @param onSearchClick called when the user opens the search
+ * @param onChartsClick called with the shown period when the user opens the charts
  * @param viewModel provided by Hilt automatically
  */
 @Composable
@@ -69,6 +64,7 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     onReviewClick: () -> Unit,
     onSearchClick: () -> Unit,
+    onChartsClick: (YearMonth) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -104,7 +100,7 @@ fun HomeScreen(
             }
 
             // The header stays fixed at the top; everything below scrolls.
-            MonthHeader(
+            PeriodHeader(
                 month = state.month,
                 monthStartDay = state.monthStartDay,
                 currentPeriod = state.currentPeriod,
@@ -129,7 +125,11 @@ fun HomeScreen(
                     }
                 }
                 item(key = "summary") {
-                    SummaryCard(summary = state.summary, carryOver = state.carryOver)
+                    SummaryCard(
+                        summary = state.summary,
+                        carryOver = state.carryOver,
+                        onChartsClick = { onChartsClick(state.month) }
+                    )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
@@ -174,76 +174,21 @@ fun HomeScreen(
     }
 }
 
-/**
- * Period title with previous / next arrows. With a month start day other
- * than 1, the exact dates are shown under the name (e.g. "15 Oct – 14 Nov").
- * Tapping the title opens [MonthPickerDialog].
- */
-@Composable
-private fun MonthHeader(
-    month: YearMonth,
-    monthStartDay: Int,
-    currentPeriod: YearMonth,
-    onPreviousClick: () -> Unit,
-    onNextClick: () -> Unit,
-    onMonthSelected: (YearMonth) -> Unit
-) {
-    // Whether the picker dialog is open. This is purely visual state,
-    // so it lives here rather than in the ViewModel.
-    var showPicker by rememberSaveable { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        TextButton(onClick = onPreviousClick) { Text("<") }
-
-        // The period name takes all the free space and opens the picker.
-        TextButton(
-            onClick = { showPicker = true },
-            modifier = Modifier.weight(1f)
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = month.format(DateTimeFormatter.ofPattern("LLLL yyyy")),
-                    style = MaterialTheme.typography.titleLarge
-                )
-                if (monthStartDay != 1) {
-                    val dayFormat = DateTimeFormatter.ofPattern("d MMM")
-                    Text(
-                        text = "${month.periodStart(monthStartDay).format(dayFormat)} – " +
-                                month.periodEndInclusive(monthStartDay).format(dayFormat),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
-
-        TextButton(onClick = onNextClick) { Text(">") }
-    }
-
-    if (showPicker) {
-        MonthPickerDialog(
-            initialMonth = month,
-            today = currentPeriod,
-            onMonthSelected = { picked ->
-                showPicker = false
-                onMonthSelected(picked)
-            },
-            onDismiss = { showPicker = false }
-        )
-    }
-}
 
 /**
  * Card with the period's totals. With carry-over on, the balance left
  * from earlier periods is shown first and included in the balance.
  */
 @Composable
-private fun SummaryCard(summary: MonthSummary, carryOver: Boolean) {
+private fun SummaryCard(
+    summary: MonthSummary,
+    carryOver: Boolean,
+    onChartsClick: () -> Unit
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (carryOver) {
@@ -253,6 +198,13 @@ private fun SummaryCard(summary: MonthSummary, carryOver: Boolean) {
             SummaryLine("Expenses", summary.totalExpenseMinor)
             HorizontalDivider()
             SummaryLine("Balance", summary.balanceMinor)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onChartsClick) { Text("Charts >") }
+            }
         }
     }
 }

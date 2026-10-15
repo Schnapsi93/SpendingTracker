@@ -1,7 +1,13 @@
 package com.aljaz.spendingtracker.ui.navigation
 
+import java.time.YearMonth
+
 /** Name of the navigation argument that carries a transaction id. */
 const val TRANSACTION_ID_ARG = "transactionId"
+
+
+/** Name of the optional navigation argument with the period to show, e.g. "2026-10". */
+const val CHARTS_MONTH_ARG = "month"
 
 /**
  * Every screen in the app, with its navigation route.
@@ -41,6 +47,14 @@ sealed class Screen(val route: String) {
 
     /** Search across all transactions. */
     data object Search : Screen("search")
+
+
+    /** Charts for one period; opens on the period passed in, or the current one. */
+    data object Charts : Screen("charts?$CHARTS_MONTH_ARG={$CHARTS_MONTH_ARG}") {
+
+        /** Builds the route for a period, e.g. "charts?month=2026-10". */
+        fun createRoute(month: YearMonth) = "charts?$CHARTS_MONTH_ARG=$month"
+    }
 }
 
 
