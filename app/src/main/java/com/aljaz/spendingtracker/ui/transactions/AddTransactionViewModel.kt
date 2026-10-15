@@ -8,6 +8,7 @@ import com.aljaz.spendingtracker.core.MoneyParser
 import com.aljaz.spendingtracker.domain.model.Transaction
 import com.aljaz.spendingtracker.domain.model.TransactionType
 import com.aljaz.spendingtracker.domain.usecase.AddTransactionUseCase
+import com.aljaz.spendingtracker.domain.usecase.CreateRuleFromTransactionUseCase
 import com.aljaz.spendingtracker.domain.usecase.DeleteTransactionUseCase
 import com.aljaz.spendingtracker.domain.usecase.GetTransactionUseCase
 import com.aljaz.spendingtracker.domain.usecase.ObserveCategoriesUseCase
@@ -35,7 +36,8 @@ class AddTransactionViewModel @Inject constructor(
     private val addTransaction: AddTransactionUseCase,
     private val updateTransaction: UpdateTransactionUseCase,
     private val deleteTransaction: DeleteTransactionUseCase,
-    private val observeCategories: ObserveCategoriesUseCase
+    private val observeCategories: ObserveCategoriesUseCase,
+    private val createRuleFromTransaction: CreateRuleFromTransactionUseCase // NEW
 ) : ViewModel() {
 
     /** Id from the navigation route, or null in add mode. */
@@ -54,7 +56,7 @@ class AddTransactionViewModel @Inject constructor(
     val uiState: StateFlow<AddTransactionUiState> = _uiState.asStateFlow()
 
     init {
-        // keep the category list up to date for the chips.
+        // Keep the category list up to date for the chips.
         viewModelScope.launch {
             observeCategories().collect { list ->
                 _uiState.update { it.copy(categories = list) }
@@ -75,6 +77,7 @@ class AddTransactionViewModel @Inject constructor(
             original = transaction
             _uiState.update {
                 it.copy(
+                    source = transaction.source, // NEW
                     type = transaction.type,
                     amountText = MoneyParser.formatForInput(transaction.amountMinor),
                     title = transaction.title,
@@ -101,7 +104,7 @@ class AddTransactionViewModel @Inject constructor(
         )
     }
 
-    /**: selects a category, or deselects it if it was already selected. */
+    /** Selects a category, or deselects it if it was already selected. */
     fun onCategoryClick(categoryId: Long) = _uiState.update {
         it.copy(
             selectedCategoryId = if (it.selectedCategoryId == categoryId) null else categoryId
@@ -178,6 +181,57 @@ class AddTransactionViewModel @Inject constructor(
             }
         }
     }
+
+
+
+    /** Opens the rule dialog, pre-filled with the merchant name. */
+    fun onApplyToFutureClick() = _uiState.update {
+        it.copy(ruleDialog = RuleDialogState(keyword = original?.title ?: it.title))
+    }
+
+    /** Stores the edited keyword and clears any old error. */
+    fun onRuleKeywordChange(value: String) = _uiState.update { state ->
+        state.copy(ruleDialog = state.ruleDialog?.copy(keyword = value, error = null))
+    }
+
+    /** Closes the rule dialog without creating a rule. */
+    fun onRuleDialogDismiss() =
+        _uiState.update { it.copy(ruleDialog = null) }
+
+    /**
+     * Creates the rule, then saves the transaction (which also closes the form).
+     * The rule is checked against the merchant as the bank sent it, even if
+     * the user changed the title.
+     */
+    fun onRuleConfirm() {
+        val state = _uiState.value
+        val dialog = state.ruleDialog ?: return
+        val categoryId = state.selectedCategoryId ?: return
+
+        // Check the amount first, so a rule is never created for a form that can't be saved.
+        if (MoneyParser.parseToMinor(state.amountText) == null) {
+            _uiState.update {
+                it.copy(ruleDialog = null, errorMessage = "Enter a valid amount, e.g. 12.50")
+            }
+            return
+        }
+
+        val merchant = original?.title ?: state.title
+
+        viewModelScope.launch {
+            when (val result = createRuleFromTransaction(dialog.keyword, merchant, categoryId)) {
+                is AppResult.Error -> _uiState.update {
+                    it.copy(ruleDialog = it.ruleDialog?.copy(error = result.message))
+                }
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(ruleDialog = null) }
+                    onSaveClick()
+                }
+            }
+        }
+    }
+
+    // ---------- Delete ----------
 
     /** Opens the "Delete?" confirmation dialog. */
     fun onDeleteClick() =

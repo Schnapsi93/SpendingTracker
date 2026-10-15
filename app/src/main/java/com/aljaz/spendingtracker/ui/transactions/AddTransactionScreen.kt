@@ -108,6 +108,14 @@ fun AddTransactionScreen(
                 onCategoryClick = viewModel::onCategoryClick
             )
 
+
+            // Only for automatic transactions with a category chosen.
+            if (state.canCreateRule) {
+                OutlinedButton(onClick = viewModel::onApplyToFutureClick) {
+                    Text("Apply to all future transactions…")
+                }
+            }
+
             OutlinedTextField(
                 value = state.title,
                 onValueChange = viewModel::onTitleChange,
@@ -143,6 +151,44 @@ fun AddTransactionScreen(
                 ) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
+            }
+
+            // "Apply to all future transactions" dialog.
+            state.ruleDialog?.let { dialog ->
+                AlertDialog(
+                    onDismissRequest = viewModel::onRuleDialogDismiss,
+                    title = { Text("Apply to future transactions") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                text = "Future bank transactions whose merchant contains this " +
+                                        "keyword will go to ${state.selectedCategoryName ?: "this category"}.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            OutlinedTextField(
+                                value = dialog.keyword,
+                                onValueChange = viewModel::onRuleKeywordChange,
+                                label = { Text("Keyword") },
+                                singleLine = true,
+                                isError = dialog.error != null,
+                                supportingText = {
+                                    Text(
+                                        dialog.error
+                                            ?: "Shorten it to match more places, e.g. \"BS LOGO\" " +
+                                            "instead of \"BS LOGO BREZOVICA\"."
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = viewModel::onRuleConfirm) { Text("Create rule and save") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = viewModel::onRuleDialogDismiss) { Text("Cancel") }
+                    }
+                )
             }
         }
     }
