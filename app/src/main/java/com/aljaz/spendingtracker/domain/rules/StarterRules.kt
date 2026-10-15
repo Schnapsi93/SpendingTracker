@@ -17,27 +17,34 @@ data class StarterRule(
 
 /**
  * The rules created when the rules table is empty.
- * All are expense rules. Change the list here to change the starting set;
- * existing installs keep their own rules.
+ * All are expense rules, and their categories match [com.aljaz.spendingtracker.domain.model.DefaultCategories],
+ * so on a fresh install no extra categories are created.
+ * Change the list here to change the starting set; existing installs keep their own rules.
  */
 object StarterRules {
 
-    private const val HOBBIES_COLOR = 0xFF3F51B5
+    // Same names and colors as in DefaultCategories.
+    private const val BIKE = "bajk / telovadba"
+    private const val BIKE_COLOR = 0xFF2196F3
+    private const val FUEL = "fuel, avto servis"
     private const val FUEL_COLOR = 0xFFF44336
-    private const val BIKE_COLOR = 0xFF388E3C
-    private const val GROCERIES_COLOR = 0xFF4CAF50
-    private const val ATM_COLOR = 0xFF00BCD4
+    private const val HOBBIES = "hobbies"
+    private const val HOBBIES_COLOR = 0xFF3F51B5
+    private const val FOOD = "fooder"
+    private const val FOOD_COLOR = 0xFF4CAF50
+    private const val OTHER = "razno"
+    private const val OTHER_COLOR = 0xFF9E9E9E
 
     val all: List<StarterRule> = listOf(
-        StarterRule("ANTHROPIC", RuleField.MERCHANT, "Hobbies", HOBBIES_COLOR),
-        StarterRule("EBAY", RuleField.MERCHANT, "Hobbies", HOBBIES_COLOR),
-        StarterRule("BS LOGO", RuleField.MERCHANT, "Car / Fuel", FUEL_COLOR),
-        StarterRule("PETROL", RuleField.MERCHANT, "Car / Fuel", FUEL_COLOR),
-        StarterRule("EASYPARK", RuleField.MERCHANT, "Car / Fuel", FUEL_COLOR),
-        StarterRule("BIKE24", RuleField.MERCHANT, "Bike / workout", BIKE_COLOR),
-        StarterRule("ZET", RuleField.MERCHANT, "Bike / workout", BIKE_COLOR),
-        StarterRule("SUPERMARKET", RuleField.MERCHANT, "Groceries", GROCERIES_COLOR),
+        StarterRule("ANTHROPIC", RuleField.MERCHANT, HOBBIES, HOBBIES_COLOR),
+        StarterRule("EBAY", RuleField.MERCHANT, HOBBIES, HOBBIES_COLOR),
+        StarterRule("BS LOGO", RuleField.MERCHANT, FUEL, FUEL_COLOR),
+        StarterRule("PETROL", RuleField.MERCHANT, FUEL, FUEL_COLOR),
+        StarterRule("EASYPARK", RuleField.MERCHANT, FUEL, FUEL_COLOR),
+        StarterRule("BIKE24", RuleField.MERCHANT, BIKE, BIKE_COLOR),
+        StarterRule("ZET", RuleField.MERCHANT, BIKE, BIKE_COLOR),
+        StarterRule("SUPERMARKET", RuleField.MERCHANT, FOOD, FOOD_COLOR),
         // Any ATM withdrawal, whichever bank's ATM it was.
-        StarterRule("BA DVIG", RuleField.OPERATION, "ATM", ATM_COLOR)
+        StarterRule("BA DVIG", RuleField.OPERATION, OTHER, OTHER_COLOR)
     )
 }
