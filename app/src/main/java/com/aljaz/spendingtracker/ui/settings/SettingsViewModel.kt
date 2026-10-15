@@ -123,13 +123,25 @@ class SettingsViewModel @Inject constructor(
 
     /** Builds the message shown after an import, listing at most 5 errors. */
     private fun describe(summary: ImportSummary): String = buildString {
-        append("Imported ${summary.imported} transactions.")
-        if (summary.skippedDuplicates > 0) {
-            append(" Skipped ${summary.skippedDuplicates} already in the app.")
+        // Only mention what actually happened, e.g. "12 transactions imported, 3 already in the app."
+        val parts = buildList {
+            if (summary.transactionsImported > 0 || summary.duplicatesSkipped > 0) {
+                add("${summary.transactionsImported} transactions imported")
+            }
+            if (summary.duplicatesSkipped > 0) add("${summary.duplicatesSkipped} already in the app")
+            if (summary.categoriesAdded > 0) add("${summary.categoriesAdded} categories added")
+            if (summary.categoriesRecolored > 0) add("${summary.categoriesRecolored} categories recolored")
+            if (summary.categoriesCreated > 0) add("${summary.categoriesCreated} categories created")
+            if (summary.rulesImported > 0) add("${summary.rulesImported} keyword rules imported")
         }
-        if (summary.createdCategories > 0) {
-            append(" Created ${summary.createdCategories} new categories.")
-        }
+        append(
+            if (parts.isEmpty()) {
+                "Nothing new to import."
+            } else {
+                parts.joinToString(", ").replaceFirstChar { it.uppercase() } + "."
+            }
+        )
+
         if (summary.errors.isNotEmpty()) {
             append("\n\n${summary.errors.size} rows could not be read:")
             summary.errors.take(MAX_ERRORS_SHOWN).forEach { append("\n• $it") }

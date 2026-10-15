@@ -85,10 +85,10 @@ fun SettingsScreen(
                 ) {
                     Text(text = "Export & import", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = "Export saves your complete history as a CSV file " +
-                                "(semicolon-separated, opens in Excel and LibreOffice). " +
-                                "Import adds transactions from such a file; rows already " +
-                                "in the app are skipped.",
+                        text = "Export saves a complete backup (transactions, categories and " +
+                                "keyword rules) as one CSV file, semicolon-separated, which opens " +
+                                "in Excel and LibreOffice. Import reads such a file, or an older " +
+                                "transactions-only file; transactions already in the app are skipped.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -157,8 +157,8 @@ private fun CloudBackupCard(
         ) {
             Text(text = "Nextcloud backup", style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "Backs up your complete history once a month as " +
-                        "spending_backup.csv, whenever the phone is online. " +
+                text = "Backs up your transactions, categories and keyword rules once a " +
+                        "month as spending_backup.csv, whenever the phone is online. " +
                         "Use an app password (Nextcloud → Personal settings → Security), " +
                         "not your main password.",
                 style = MaterialTheme.typography.bodyMedium

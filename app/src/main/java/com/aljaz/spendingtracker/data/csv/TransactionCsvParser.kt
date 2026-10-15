@@ -43,8 +43,17 @@ class TransactionCsvParser @Inject constructor() {
      * @param text the complete file content
      * @param zone time zone used to interpret the Date column
      */
-    fun parse(text: String, zone: ZoneId = ZoneId.systemDefault()): CsvParseResult {
-        val table = parseCsv(text)
+    fun parse(text: String, zone: ZoneId = ZoneId.systemDefault()): CsvParseResult =
+        parseTable(parseCsv(text), zone)
+
+    /**
+     * Same as [parse], for text already split into rows,
+     * e.g. one section of a complete backup file.
+     */
+    fun parseTable(
+        table: List<List<String>>,
+        zone: ZoneId = ZoneId.systemDefault()
+    ): CsvParseResult {
         if (table.isEmpty()) {
             return CsvParseResult(emptyList(), listOf("The file is empty."))
         }

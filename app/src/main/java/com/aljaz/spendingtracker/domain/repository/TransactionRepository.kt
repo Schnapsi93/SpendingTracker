@@ -43,4 +43,7 @@ interface TransactionRepository {
 
     /** Marks the given transactions as confirmed by the user. */
     suspend fun markReviewed(ids: List<Long>)
+
+    /** Every transaction, newest first; updates automatically. */
+    fun observeAll(): Flow<List<Transaction>>
 }

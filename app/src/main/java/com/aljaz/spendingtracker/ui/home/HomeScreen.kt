@@ -41,6 +41,7 @@ import com.aljaz.spendingtracker.ui.components.MonthPickerDialog
 import com.aljaz.spendingtracker.ui.components.TransactionRow
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import androidx.compose.material3.OutlinedButton
 
 
 /** Currency used for the totals until multi-currency support exists. */
@@ -55,6 +56,7 @@ private const val DISPLAY_CURRENCY = "EUR"
  * @param onCategoriesClick called when the user wants to manage categories
  * @param onSettingsClick called when the user wants to open the settings
  * @param onReviewClick called when the user opens the review queue
+ * @param onSearchClick called when the user opens the search
  * @param viewModel provided by Hilt automatically
  */
 @Composable
@@ -64,6 +66,7 @@ fun HomeScreen(
     onCategoriesClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onReviewClick: () -> Unit,
+    onSearchClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -87,11 +90,13 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Spending Tracker",
-                    style = MaterialTheme.typography.titleMedium,
+                // Takes the free space on the left; Categories and Settings stay on the right.
+                OutlinedButton(
+                    onClick = onSearchClick,
                     modifier = Modifier.weight(1f)
-                )
+                ) {
+                    Text("Search…")
+                }
                 TextButton(onClick = onCategoriesClick) { Text("Categories") }
                 TextButton(onClick = onSettingsClick) { Text("Settings") }
             }

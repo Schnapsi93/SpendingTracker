@@ -21,6 +21,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
 
 /**
  * Logic behind the add/edit transaction form.
@@ -122,6 +126,21 @@ class AddTransactionViewModel @Inject constructor(
     /** Stores the note text. */
     fun onNoteChange(text: String) =
         _uiState.update { it.copy(note = text) }
+
+
+    /** Changes the date and keeps the time of day. */
+    fun onDateSelected(date: LocalDate) = _uiState.update { state ->
+        val zone = ZoneId.systemDefault()
+        val time = Instant.ofEpochMilli(state.timestamp).atZone(zone).toLocalTime()
+        state.copy(timestamp = date.atTime(time).atZone(zone).toInstant().toEpochMilli())
+    }
+
+    /** Changes the time of day and keeps the date. */
+    fun onTimeSelected(time: LocalTime) = _uiState.update { state ->
+        val zone = ZoneId.systemDefault()
+        val date = Instant.ofEpochMilli(state.timestamp).atZone(zone).toLocalDate()
+        state.copy(timestamp = date.atTime(time).atZone(zone).toInstant().toEpochMilli())
+    }
 
     /**
      * Validates the form, then adds a new transaction or updates the

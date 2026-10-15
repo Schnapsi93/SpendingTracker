@@ -37,6 +37,10 @@ sealed class Screen(val route: String) {
 
     /** Keyword rules for automatic categorization. */
     data object Rules : Screen("rules")
+
+
+    /** Search across all transactions. */
+    data object Search : Screen("search")
 }
 
 

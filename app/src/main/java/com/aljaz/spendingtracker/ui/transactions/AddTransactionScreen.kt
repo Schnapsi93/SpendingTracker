@@ -27,6 +27,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.aljaz.spendingtracker.domain.model.TransactionType
 import com.aljaz.spendingtracker.ui.components.CategorySelector
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.aljaz.spendingtracker.ui.components.DateSelectDialog
+import com.aljaz.spendingtracker.ui.components.TimeSelectDialog
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /**
  * Form for adding a new transaction or editing an existing one.
@@ -45,6 +54,14 @@ fun AddTransactionScreen(
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+
+
+    // Which picker dialog is open. Purely visual state, so it lives here.
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
+
+    // The transaction's moment in the phone's time zone, for display and the pickers.
+    val dateTime = Instant.ofEpochMilli(state.timestamp).atZone(ZoneId.systemDefault())
 
     // Close the screen once a save or delete has finished.
     LaunchedEffect(state.isFinished) {
@@ -101,6 +118,16 @@ fun AddTransactionScreen(
                 supportingText = state.errorMessage?.let { message -> { Text(message) } },
                 modifier = Modifier.fillMaxWidth()
             )
+
+            Text(text = "Date & time", style = MaterialTheme.typography.titleSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { showDatePicker = true }) {
+                    Text(dateTime.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)))
+                }
+                OutlinedButton(onClick = { showTimePicker = true }) {
+                    Text(dateTime.format(DateTimeFormatter.ofPattern("HH:mm")))
+                }
+            }
             Text(text = "Category", style = MaterialTheme.typography.titleSmall)
             CategorySelector(
                 categories = state.categoriesForType,
@@ -188,6 +215,28 @@ fun AddTransactionScreen(
                     dismissButton = {
                         TextButton(onClick = viewModel::onRuleDialogDismiss) { Text("Cancel") }
                     }
+                )
+            }
+
+            // Date and time pickers.
+            if (showDatePicker) {
+                DateSelectDialog(
+                    initialDate = dateTime.toLocalDate(),
+                    onDateSelected = { date ->
+                        viewModel.onDateSelected(date)
+                        showDatePicker = false
+                    },
+                    onDismiss = { showDatePicker = false }
+                )
+            }
+            if (showTimePicker) {
+                TimeSelectDialog(
+                    initialTime = dateTime.toLocalTime(),
+                    onTimeSelected = { time ->
+                        viewModel.onTimeSelected(time)
+                        showTimePicker = false
+                    },
+                    onDismiss = { showTimePicker = false }
                 )
             }
         }

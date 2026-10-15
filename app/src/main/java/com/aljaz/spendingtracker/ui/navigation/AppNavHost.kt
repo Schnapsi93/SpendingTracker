@@ -13,6 +13,7 @@ import com.aljaz.spendingtracker.ui.transactions.AddTransactionScreen
 import com.aljaz.spendingtracker.ui.settings.SettingsScreen
 import com.aljaz.spendingtracker.ui.review.ReviewScreen
 import com.aljaz.spendingtracker.ui.rules.RulesScreen
+import com.aljaz.spendingtracker.ui.search.SearchScreen
 
 /**
  * The app's navigation graph: which screen is shown for which route,
@@ -46,7 +47,11 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                 },
                 onReviewClick = {
                     navController.navigate(Screen.Review.route)
+                },
+                onSearchClick = {
+                    navController.navigate(Screen.Search.route)
                 }
+
             )
         }
 
@@ -88,6 +93,16 @@ fun AppNavHost(modifier: Modifier = Modifier) {
 
         composable(Screen.Rules.route) {
             RulesScreen(onBackClick = { navController.popBackStack() })
+        }
+
+
+        composable(Screen.Search.route) {
+            SearchScreen(
+                onBackClick = { navController.popBackStack() },
+                onTransactionClick = { id ->
+                    navController.navigate(Screen.EditTransaction.createRoute(id))
+                }
+            )
         }
     }
 }

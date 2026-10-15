@@ -3,7 +3,7 @@ package com.aljaz.spendingtracker.domain.export
 import java.io.OutputStream
 
 /**
- * Writes the complete transaction history somewhere.
+ * Writes a complete backup: all transactions, categories and keyword rules.
  *
  * The domain layer only knows this interface; the actual file format
  * (CSV today, maybe JSON later) is an implementation detail.

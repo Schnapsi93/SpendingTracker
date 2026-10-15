@@ -18,20 +18,58 @@ import java.nio.charset.CodingErrorAction
 import javax.inject.Inject
 
 /**
- * [HistoryImporter] for CSV files in [CsvFormat].
+ * [HistoryImporter] for the app's CSV files: a complete backup with
+ * sections, or an older transactions-only file.
  *
- * Only adds data: existing transactions are never changed or deleted,
- * and rows that are already in the app are skipped.
+ * Each section is recognized by its header row. Categories are imported
+ * first, then rules, then transactions, whatever their order in the file,
+ * so transactions find their categories with the right colors.
+ *
+ * Only adds data: nothing is deleted, and transactions already in the
+ * app are skipped.
  */
 class CsvHistoryImporter @Inject constructor(
     private val parser: TransactionCsvParser,
+    private val configurationImporter: CsvConfigurationImporter,
     private val transactionRepository: TransactionRepository,
     private val categoryRepository: CategoryRepository
 ) : HistoryImporter {
 
+    /** The three kinds of section a file can contain. */
+    private enum class SectionKind { TRANSACTIONS, CATEGORIES, RULES }
+
     override suspend fun import(input: InputStream): ImportSummary {
         val bytes = withContext(Dispatchers.IO) { input.readBytes() }
-        val parsed = parser.parse(decode(bytes))
+        val sections = splitSections(parseCsv(decode(bytes)))
+        if (sections.isEmpty()) {
+            return ImportSummary(errors = listOf("The file is empty."))
+        }
+
+        val byKind = sections.groupBy { kindOf(it) }
+        var summary = ImportSummary()
+
+        // Fixed order: categories (with colors), then rules, then transactions.
+        byKind[SectionKind.CATEGORIES]?.forEach { summary += configurationImporter.importCategories(it) }
+        byKind[SectionKind.RULES]?.forEach { summary += configurationImporter.importRules(it) }
+        byKind[SectionKind.TRANSACTIONS]?.forEach { summary += importTransactions(it) }
+
+        return summary
+    }
+
+    /** Recognizes a section by its header row. Unknown headers count as transactions,
+     *  so the transaction parser reports them as "Unexpected columns". */
+    private fun kindOf(section: List<List<String>>): SectionKind {
+        val header = section.first().map { it.trim().lowercase() }
+        return when (header) {
+            CsvFormat.CATEGORY_HEADER.map { it.lowercase() } -> SectionKind.CATEGORIES
+            CsvFormat.RULE_HEADER.map { it.lowercase() } -> SectionKind.RULES
+            else -> SectionKind.TRANSACTIONS
+        }
+    }
+
+    /** Imports a transactions section, skipping rows already in the app. */
+    private suspend fun importTransactions(section: List<List<String>>): ImportSummary {
+        val parsed = parser.parseTable(section)
 
         // Fingerprints of everything already stored, to recognize duplicates.
         val existingKeys = transactionRepository.getAll()
@@ -75,7 +113,12 @@ class CsvHistoryImporter @Inject constructor(
             }
         }
 
-        return ImportSummary(imported, duplicates, createdCategories, parsed.errors)
+        return ImportSummary(
+            transactionsImported = imported,
+            duplicatesSkipped = duplicates,
+            categoriesCreated = createdCategories,
+            errors = parsed.errors.map { "Transactions, $it" }
+        )
     }
 
     /**

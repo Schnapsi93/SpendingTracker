@@ -73,4 +73,9 @@ interface TransactionDao {
     /** Marks the given transactions as confirmed. */
     @Query("UPDATE transactions SET reviewed = 1 WHERE id IN (:ids)")
     suspend fun markReviewed(ids: List<Long>)
+
+
+    /** Streams every transaction, newest first; updates automatically. */
+    @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
+    fun observeAll(): Flow<List<TransactionEntity>>
 }
