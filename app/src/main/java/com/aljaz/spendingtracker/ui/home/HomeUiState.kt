@@ -16,6 +16,8 @@ import java.time.YearMonth
  * @property categoriesById all categories, keyed by id for quick lookup
  * @property unreviewedCount automatic transactions waiting for review, in all months
  * @property unrecognizedCount bank messages that couldn't be read
+ * @property monthStartDay the day periods start on; 1 = calendar months
+ * @property currentPeriod the period containing today, for the picker's "Today"
  */
 data class HomeUiState(
     val month: YearMonth,
@@ -24,5 +26,7 @@ data class HomeUiState(
     val transactions: List<Transaction> = emptyList(),
     val categoriesById: Map<Long, Category> = emptyMap(),
     val unreviewedCount: Int = 0,
-    val unrecognizedCount: Int = 0
+    val unrecognizedCount: Int = 0,
+    val monthStartDay: Int = 1,
+    val currentPeriod: YearMonth = month
 )

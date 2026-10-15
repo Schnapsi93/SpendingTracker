@@ -47,6 +47,7 @@ data class CloudFormState(
  * @property cloud the Nextcloud backup form
  * @property smsTest the bank SMS test field
  * @property notificationsEnabled whether new bank transactions show a notification
+ * @property monthStartDay the day of the month periods start on; 1 = calendar months
  */
 data class SettingsUiState(
     val isExporting: Boolean = false,
@@ -54,7 +55,8 @@ data class SettingsUiState(
     val message: String? = null,
     val cloud: CloudFormState = CloudFormState(),
     val smsTest: SmsTestState = SmsTestState(),
-    val notificationsEnabled: Boolean = true
+    val notificationsEnabled: Boolean = true,
+    val monthStartDay: Int = 1
 
 ) {
     /** True while any file operation runs; buttons are disabled meanwhile. */

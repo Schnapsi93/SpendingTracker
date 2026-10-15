@@ -42,6 +42,8 @@ import com.aljaz.spendingtracker.ui.components.TransactionRow
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import androidx.compose.material3.OutlinedButton
+import com.aljaz.spendingtracker.core.periodEndInclusive
+import com.aljaz.spendingtracker.core.periodStart
 
 
 /** Currency used for the totals until multi-currency support exists. */
@@ -104,6 +106,8 @@ fun HomeScreen(
             // The header stays fixed at the top; everything below scrolls.
             MonthHeader(
                 month = state.month,
+                monthStartDay = state.monthStartDay,
+                currentPeriod = state.currentPeriod,
                 onPreviousClick = viewModel::onPreviousMonth,
                 onNextClick = viewModel::onNextMonth,
                 onMonthSelected = viewModel::onMonthSelected
@@ -171,13 +175,15 @@ fun HomeScreen(
 }
 
 /**
- * Month title with previous / next arrows.
- * Tapping the title opens [MonthPickerDialog] for jumping to far-away
- * months or back to today.
+ * Period title with previous / next arrows. With a month start day other
+ * than 1, the exact dates are shown under the name (e.g. "15 Oct – 14 Nov").
+ * Tapping the title opens [MonthPickerDialog].
  */
 @Composable
 private fun MonthHeader(
     month: YearMonth,
+    monthStartDay: Int,
+    currentPeriod: YearMonth,
     onPreviousClick: () -> Unit,
     onNextClick: () -> Unit,
     onMonthSelected: (YearMonth) -> Unit
@@ -192,15 +198,25 @@ private fun MonthHeader(
     ) {
         TextButton(onClick = onPreviousClick) { Text("<") }
 
-        // The month name takes all the free space and opens the picker.
+        // The period name takes all the free space and opens the picker.
         TextButton(
             onClick = { showPicker = true },
             modifier = Modifier.weight(1f)
         ) {
-            Text(
-                text = month.format(DateTimeFormatter.ofPattern("LLLL yyyy")),
-                style = MaterialTheme.typography.titleLarge
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = month.format(DateTimeFormatter.ofPattern("LLLL yyyy")),
+                    style = MaterialTheme.typography.titleLarge
+                )
+                if (monthStartDay != 1) {
+                    val dayFormat = DateTimeFormatter.ofPattern("d MMM")
+                    Text(
+                        text = "${month.periodStart(monthStartDay).format(dayFormat)} – " +
+                                month.periodEndInclusive(monthStartDay).format(dayFormat),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
         }
 
         TextButton(onClick = onNextClick) { Text(">") }
@@ -209,6 +225,7 @@ private fun MonthHeader(
     if (showPicker) {
         MonthPickerDialog(
             initialMonth = month,
+            today = currentPeriod,
             onMonthSelected = { picked ->
                 showPicker = false
                 onMonthSelected(picked)

@@ -2,6 +2,9 @@ package com.aljaz.spendingtracker.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aljaz.spendingtracker.core.periodContaining
+import com.aljaz.spendingtracker.domain.repository.UnrecognizedMessageRepository
+import com.aljaz.spendingtracker.domain.settings.PeriodSettingsRepository
 import com.aljaz.spendingtracker.domain.usecase.ObserveCategoriesUseCase
 import com.aljaz.spendingtracker.domain.usecase.ObserveMonthOverviewUseCase
 import com.aljaz.spendingtracker.domain.usecase.ObserveUnreviewedTransactionsUseCase
@@ -15,44 +18,50 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import java.time.LocalDate
 import java.time.YearMonth
 import javax.inject.Inject
-import com.aljaz.spendingtracker.domain.repository.UnrecognizedMessageRepository
 
 /**
- * Logic behind the Home screen: which month is selected, plus the
- * transactions, totals, categories and review count needed to draw it.
+ * Logic behind the Home screen: which period is selected, plus the
+ * transactions, totals, categories and review counts needed to draw it.
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     observeMonthOverview: ObserveMonthOverviewUseCase,
     observeCategories: ObserveCategoriesUseCase,
     observeUnreviewed: ObserveUnreviewedTransactionsUseCase,
-    unrecognizedMessages: UnrecognizedMessageRepository
-
+    unrecognizedMessages: UnrecognizedMessageRepository,
+    private val periodSettings: PeriodSettingsRepository
 ) : ViewModel() {
 
-    private val selectedMonth = MutableStateFlow(YearMonth.now())
+    /** Starts at the period containing today (which may be last month's, e.g. on 10 Oct with start day 15). */
+    private val selectedMonth = MutableStateFlow(
+        periodContaining(LocalDate.now(), periodSettings.monthStartDay.value)
+    )
 
     /**
-     * Combines three independent streams into one screen state:
+     * Combines independent streams into one screen state:
      *
-     * 1. The selected month's overview. flatMapLatest switches to the new
-     *    month whenever the selection changes and drops the old one.
+     * 1. The selected period's overview. It is recalculated whenever the
+     *    selected month or the month start day changes; flatMapLatest drops
+     *    the previous calculation.
      * 2. All categories, so each row can show its category's name and color.
      * 3. The number of automatic transactions waiting for review.
-     *
-     * Whenever any stream emits, a fresh state is produced.
+     * 4. The number of unreadable bank messages.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<HomeUiState> = combine(
-        selectedMonth.flatMapLatest { month ->
-            observeMonthOverview(month).map { overview -> month to overview }
-        },
+        combine(selectedMonth, periodSettings.monthStartDay) { month, startDay -> month to startDay }
+            .flatMapLatest { (month, startDay) ->
+                observeMonthOverview(month, startDay).map { overview ->
+                    Triple(month, startDay, overview)
+                }
+            },
         observeCategories(),
         observeUnreviewed().map { it.size },
         unrecognizedMessages.observeAll().map { it.size }
-    ) { (month, overview), categories, unreviewedCount, unrecognizedCount ->
+    ) { (month, startDay, overview), categories, unreviewedCount, unrecognizedCount ->
         HomeUiState(
             month = month,
             summary = overview.summary,
@@ -60,7 +69,9 @@ class HomeViewModel @Inject constructor(
             transactions = overview.transactions,
             categoriesById = categories.associateBy { it.id },
             unreviewedCount = unreviewedCount,
-            unrecognizedCount = unrecognizedCount
+            unrecognizedCount = unrecognizedCount,
+            monthStartDay = startDay,
+            currentPeriod = periodContaining(LocalDate.now(), startDay)
         )
     }.stateIn(
         scope = viewModelScope,
@@ -68,13 +79,13 @@ class HomeViewModel @Inject constructor(
         initialValue = HomeUiState(month = selectedMonth.value)
     )
 
-    /** Moves the display one month back. */
+    /** Moves the display one period back. */
     fun onPreviousMonth() = selectedMonth.update { it.minusMonths(1) }
 
-    /** Moves the display one month forward. */
+    /** Moves the display one period forward. */
     fun onNextMonth() = selectedMonth.update { it.plusMonths(1) }
 
-    /** Jumps directly to any month, e.g. one picked in the month selector. */
+    /** Jumps directly to any period, e.g. one picked in the month selector. */
     fun onMonthSelected(month: YearMonth) {
         selectedMonth.value = month
     }

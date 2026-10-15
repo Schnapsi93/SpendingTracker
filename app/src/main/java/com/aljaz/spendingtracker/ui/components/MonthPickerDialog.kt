@@ -32,12 +32,14 @@ import java.util.Locale
  * @param initialMonth the month currently shown; highlighted in the grid
  * @param onMonthSelected called with the chosen month (also used by "Today")
  * @param onDismiss called when the dialog is cancelled
+ * @param today the period that "Today" jumps to (the one containing today's date)
  */
 @Composable
 fun MonthPickerDialog(
     initialMonth: YearMonth,
     onMonthSelected: (YearMonth) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    today: YearMonth = YearMonth.now()
 ) {
     // The year being browsed. Survives screen rotation thanks to rememberSaveable.
     var year by rememberSaveable { mutableIntStateOf(initialMonth.year) }

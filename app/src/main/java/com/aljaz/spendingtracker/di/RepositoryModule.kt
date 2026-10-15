@@ -17,6 +17,8 @@ import com.aljaz.spendingtracker.data.repository.CategoryRuleRepositoryImpl
 import com.aljaz.spendingtracker.domain.repository.CategoryRuleRepository
 import com.aljaz.spendingtracker.data.repository.UnrecognizedMessageRepositoryImpl
 import com.aljaz.spendingtracker.domain.repository.UnrecognizedMessageRepository
+import com.aljaz.spendingtracker.data.settings.PeriodSettingsStore
+import com.aljaz.spendingtracker.domain.settings.PeriodSettingsRepository
 
 /**
  * Connects repository interfaces to their implementations.
@@ -73,4 +75,12 @@ abstract class RepositoryModule {
     abstract fun bindUnrecognizedMessageRepository(
         impl: UnrecognizedMessageRepositoryImpl
     ): UnrecognizedMessageRepository
+
+
+    /** Period settings (month start day), kept in preferences. */
+    @Binds
+    @Singleton
+    abstract fun bindPeriodSettingsRepository(
+        impl: PeriodSettingsStore
+    ): PeriodSettingsRepository
 }

@@ -39,6 +39,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import android.os.Build
 import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.AlertDialog
 
 /**
  * Settings screen: CSV export and import, and the Nextcloud backup.
@@ -114,6 +118,12 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // ----- Time period -----
+            PeriodCard(
+                monthStartDay = state.monthStartDay,
+                onMonthStartDayChange = viewModel::onMonthStartDayChange
+            )
 
             // ----- Bank SMS -----
             BankSmsCard(
@@ -367,4 +377,104 @@ private fun NotificationsCard(
             }
         }
     }
+}
+
+
+/** Time period card: the day of the month on which periods start. */
+@Composable
+private fun PeriodCard(
+    monthStartDay: Int,
+    onMonthStartDayChange: (Int) -> Unit
+) {
+    var showPicker by rememberSaveable { mutableStateOf(false) }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(text = "Time period", style = MaterialTheme.typography.titleMedium)
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Month starts on day",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedButton(onClick = { showPicker = true }) {
+                    Text(monthStartDay.toString())
+                }
+            }
+
+            Text(
+                text = if (monthStartDay == 1) {
+                    "Periods follow the calendar months."
+                } else {
+                    "Each period runs from day $monthStartDay to day ${monthStartDay - 1} " +
+                            "of the next month and is named after the month it starts in."
+                },
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+
+    if (showPicker) {
+        DayPickerDialog(
+            selected = monthStartDay,
+            onDaySelected = { day ->
+                onMonthStartDayChange(day)
+                showPicker = false
+            },
+            onDismiss = { showPicker = false }
+        )
+    }
+}
+
+/** Calendar-like grid of days 1–31 for choosing the month start day. */
+@Composable
+private fun DayPickerDialog(
+    selected: Int,
+    onDaySelected: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Month starts on day") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                (1..31).chunked(7).forEach { week ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        week.forEach { day ->
+                            val padding = PaddingValues(0.dp)
+                            if (day == selected) {
+                                Button(
+                                    onClick = { onDaySelected(day) },
+                                    contentPadding = padding,
+                                    modifier = Modifier.weight(1f)
+                                ) { Text(day.toString()) }
+                            } else {
+                                TextButton(
+                                    onClick = { onDaySelected(day) },
+                                    contentPadding = padding,
+                                    modifier = Modifier.weight(1f)
+                                ) { Text(day.toString()) }
+                            }
+                        }
+                        // Keep the last, shorter row aligned with the others.
+                        repeat(7 - week.size) { Spacer(modifier = Modifier.weight(1f)) }
+                    }
+                }
+                Text(
+                    text = "Days 29–31: in shorter months the period starts on the last day.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }

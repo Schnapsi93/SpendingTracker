@@ -32,6 +32,7 @@ import com.aljaz.spendingtracker.automation.parser.DhSmsParser
 import com.aljaz.spendingtracker.core.MoneyFormatter
 import com.aljaz.spendingtracker.domain.model.TransactionSource
 import com.aljaz.spendingtracker.automation.notifications.NotificationPreferences
+import com.aljaz.spendingtracker.domain.settings.PeriodSettingsRepository
 
 /**
  * Logic behind the Settings screen: CSV export and import, and the
@@ -50,7 +51,8 @@ class SettingsViewModel @Inject constructor(
     private val testCloudConnection: TestCloudConnectionUseCase,
     private val runCloudBackup: RunCloudBackupUseCase,
     private val bankMessageProcessor: BankMessageProcessor,
-    private val notificationPreferences: NotificationPreferences
+    private val notificationPreferences: NotificationPreferences,
+    private val periodSettings: PeriodSettingsRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -59,6 +61,12 @@ class SettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch { refreshCloudForm() }
         _uiState.update { it.copy(notificationsEnabled = notificationPreferences.isEnabled()) }
+        // Keep the shown start day in sync with the stored one.
+        viewModelScope.launch {
+            periodSettings.monthStartDay.collect { day ->
+                _uiState.update { it.copy(monthStartDay = day) }
+            }
+        }
     }
 
     // ---------- Export ----------
@@ -152,6 +160,11 @@ class SettingsViewModel @Inject constructor(
             if (hidden > 0) append("\n…and $hidden more.")
         }
     }
+
+    // ---------- Time period ----------
+
+    /** Saves the day of the month periods start on. Home updates immediately. */
+    fun onMonthStartDayChange(day: Int) = periodSettings.setMonthStartDay(day)
 
     // ---------- Notifications ----------
 

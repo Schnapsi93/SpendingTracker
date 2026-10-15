@@ -19,9 +19,14 @@ class ObserveMonthOverviewUseCase @Inject constructor(
     private val repository: TransactionRepository
 ) {
 
-    /** @param month the month to observe, e.g. YearMonth.now() */
-    operator fun invoke(month: YearMonth): Flow<MonthOverview> {
-        val (start, end) = month.toEpochMillisRange()
+    /**
+     * Streams the transactions, totals and per-category spending for one
+     * period (a calendar month, or e.g. 15th to 14th, see MonthRange.kt).
+     * @param month the period to observe, named after the month it starts in
+     * @param startDay the day of the month periods start on; 1 = calendar months
+     */
+    operator fun invoke(month: YearMonth, startDay: Int = 1): Flow<MonthOverview> {
+        val (start, end) = month.toEpochMillisRange(startDay = startDay)
 
         return repository.observeBetween(start, end).map { transactions ->
             val expenses = transactions.filter { it.type == TransactionType.EXPENSE }
