@@ -48,6 +48,10 @@ Built with Kotlin and Jetpack Compose on a layered, test-covered architecture de
 - Messages from any other sender are ignored and never stored
 - Automatic categorization through keyword rules (merchant or operation based)
 - Duplicate protection for messages delivered more than once
+- Review queue: automatic transactions are marked *NEW* until confirmed; a Home banner leads to the Review screen with per-item and "Confirm all" confirmation
+- Bank messages that can't be read are kept as *unrecognized messages* (copy, try again after a parser update, or delete)
+- "Apply to all future transactions": correcting an automatic transaction's category can create a keyword rule from its merchant name
+- Rules screen for adding, editing and deleting keyword rules
 - "Test with a message" field to run any bank SMS through the full pipeline
 
 ### Data
@@ -132,16 +136,18 @@ com.aljaz.spendingtracker
 │   ├── csv/                     # CSV format, reader, formatter, parser, exporter, importer
 │   └── backup/                  # Nextcloud client, Keystore cipher, settings store, worker
 ├── automation/
-│   ├── BankMessageProcessor.kt  # Parse → categorize → deduplicate → save
+│   ├── BankMessageProcessor.kt  # Parse → categorize → deduplicate → save (or keep as unrecognized)
 │   ├── parser/                  # BankMessageParser interface, DhSmsParser
 │   └── sms/                     # SmsReceiver
 ├── di/                          # Hilt modules
 └── ui/
     ├── navigation/              # Routes and NavHost
-    ├── components/              # Reusable widgets (month picker, category chips, color dot)
-    ├── home/                    # Month overview
-    ├── transactions/            # Add / edit form
+    ├── components/              # Reusable widgets (transaction row, month picker, category chips, color dot)
+    ├── home/                    # Month overview and review banner
+    ├── transactions/            # Add / edit form, "Apply to all future transactions"
     ├── categories/              # Category management
+    ├── rules/                   # Keyword rule management
+    ├── review/                  # Review queue and unrecognized messages
     ├── settings/                # Export, import, bank SMS, Nextcloud backup
     └── theme/
 
@@ -194,6 +200,8 @@ All tests are local JVM unit tests and run in seconds without an emulator.
 | `ScheduledBackupTest` | Monthly backup decision, empty-history guard |
 | `DhSmsParserTest` | All supported DH SMS formats, sender matching |
 | `CategoryRuleMatcherTest` | Keyword matching, priorities, whole-word behavior |
+| `CreateRuleFromTransactionTest` | Rules created from corrected transactions, typo guard |
+| `SaveRuleUseCaseTest` | Saving and editing rules by hand |
 
 When fixing a bug, first add a failing test that reproduces it, then fix the code until the test passes.
 
@@ -216,6 +224,7 @@ Room database `spending_tracker.db`, with the schema of every version exported t
 | 1 | `transactions` table | — |
 | 2 | `categories` table | Auto-migration |
 | 3 | `category_rules` table | Auto-migration |
+| 4 | `unrecognized_messages` table | Auto-migration |
 
 **Changing the schema:**
 1. Change or add the entity.
@@ -232,7 +241,7 @@ flowchart TD
     A[SMS received] --> B{Sender is a known bank?}
     B -- no --> X[Ignored, nothing stored]
     B -- yes --> C[Parser extracts operation, date,<br/>amount, currency, merchant, card]
-    C -- not a transaction --> U[Unrecognized]
+    C -- cannot be read --> U[Kept as unrecognized message<br/>for copy / retry / delete]
     C --> D[Keyword rules pick a category]
     D --> E{Same fingerprint already saved?}
     E -- yes --> F[Skipped as duplicate]
@@ -264,6 +273,8 @@ A rule says *"when this keyword appears in the merchant (or the operation), use 
   3. The newest rule wins a tie
 - Each keyword points to exactly one category; saving the same keyword again replaces the old rule.
 - Starter rules are created on first launch (`StarterRules.kt`), together with any categories they need.
+- New rules come from two places: **"Apply to all future transactions"** in the edit form of an automatic transaction (the keyword must appear in that merchant's name), and the **Rules screen** (Categories → Rules).
+- Deleting a rule never changes transactions that were already saved.
 
 ### CSV format
 
@@ -297,7 +308,7 @@ Date;Type;Amount;Currency;Category;Title;Note;Source
 
 ## Privacy and security
 
-- **SMS:** only messages from registered bank senders are read. All others are dropped before parsing and never stored or logged. Message bodies are never written to the log.
+- **SMS:** only messages from registered bank senders are read. All others are dropped before parsing and never stored or logged. Message bodies are never written to the log. Bank messages that can't be parsed are stored locally only, so the user can inspect or delete them.
 - **Receiver protection:** the SMS receiver requires the `BROADCAST_SMS` permission, so only the Android system can deliver messages to it.
 - **Credentials:** the Nextcloud **app password** is encrypted with an AES-256-GCM key held in the Android Keystore; the key never leaves the device. After restoring the app on another device the password must be entered again.
 - **Transport:** server addresses must use `https://`. Plain HTTP is rejected.
@@ -339,18 +350,19 @@ Implement `HistoryExporter` / `HistoryImporter` or `CloudStorage` and bind the n
 | 2. Manual add, edit and delete; month overview | ✅ Done |
 | 3. Categories, per-category spending, category management | ✅ Done |
 | 4. CSV export/import, Nextcloud backup | ✅ Done |
-| 5. Bank SMS automation | 🚧 In progress |
+| 5. Bank SMS automation | ✅ Done |
 | &nbsp;&nbsp;5.1 SMS parser | ✅ Done |
 | &nbsp;&nbsp;5.2 Keyword rules and automatic categorization | ✅ Done |
-| &nbsp;&nbsp;5.3 Receiving SMS and saving transactions | 🚧 In progress |
-| &nbsp;&nbsp;5.4 Review queue and unrecognized messages | ⏳ Planned |
-| &nbsp;&nbsp;5.5 "Apply to all future transactions" | ⏳ Planned |
-| &nbsp;&nbsp;5.6 Rules management screen | ⏳ Planned |
+| &nbsp;&nbsp;5.3 Receiving SMS and saving transactions | ✅ Done |
+| &nbsp;&nbsp;5.4 Review queue | ✅ Done |
+| &nbsp;&nbsp;5.4b Unrecognized messages | ✅ Done |
+| &nbsp;&nbsp;5.5 "Apply to all future transactions" | ✅ Done |
+| &nbsp;&nbsp;5.6 Rules management screen | ✅ Done |
 | 6. Google Wallet notifications | ⏳ Planned |
 | 7. Settings polish, onboarding for permissions | ⏳ Planned |
 | 8. Testing, polish and release preparation | ⏳ Planned |
 
-**Ideas for later:** date picker in the transaction form, budgets per category, charts, recurring transactions, multi-currency, home screen widget, including rules and category colors in backups.
+**Ideas for later:** date picker in the transaction form, budgets per category, charts, recurring transactions, multi-currency, home screen widget, including rules and category colors in backups, applying a new rule to past uncategorized transactions.
 
 ---
 
