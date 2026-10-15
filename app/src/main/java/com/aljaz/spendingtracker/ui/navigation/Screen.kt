@@ -2,6 +2,7 @@ package com.aljaz.spendingtracker.ui.navigation
 
 import java.time.YearMonth
 
+
 /** Name of the navigation argument that carries a transaction id. */
 const val TRANSACTION_ID_ARG = "transactionId"
 
@@ -55,6 +56,9 @@ sealed class Screen(val route: String) {
         /** Builds the route for a period, e.g. "charts?month=2026-10". */
         fun createRoute(month: YearMonth) = "charts?$CHARTS_MONTH_ARG=$month"
     }
+
+    /** First-launch setup guide; can be reopened from Settings. */
+    data object Onboarding : Screen("onboarding")
 }
 
 

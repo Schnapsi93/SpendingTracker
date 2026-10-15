@@ -16,6 +16,7 @@ import com.aljaz.spendingtracker.ui.rules.RulesScreen
 import com.aljaz.spendingtracker.ui.search.SearchScreen
 import androidx.compose.runtime.LaunchedEffect
 import com.aljaz.spendingtracker.ui.charts.ChartsScreen
+import com.aljaz.spendingtracker.ui.onboarding.OnboardingScreen
 
 /**
  * The app's navigation graph: which screen is shown for which route,
@@ -24,17 +25,19 @@ import com.aljaz.spendingtracker.ui.charts.ChartsScreen
  * Screens never touch the NavController directly. They receive simple
  * callbacks (like onBackClick), which keeps them easy to test and reuse.
  * @param openReviewRequests changes whenever a notification asks to show the Review screen
+ * @param showOnboarding true on first launch: the app starts with the setup guide
  */
 @Composable
 fun AppNavHost(
     modifier: Modifier = Modifier,
-    openReviewRequests: Int = 0
+    openReviewRequests: Int = 0,
+    showOnboarding: Boolean = false
 ) {
     val navController = rememberNavController()
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Home.route,
+        startDestination = if (showOnboarding) Screen.Onboarding.route else Screen.Home.route,
         modifier = modifier
     ) {
         composable(Screen.Home.route) {
@@ -87,8 +90,11 @@ fun AppNavHost(
         }
 
         composable(Screen.Settings.route) {
-            SettingsScreen(onBackClick = { navController.popBackStack() })
-            }
+            SettingsScreen(
+                onBackClick = { navController.popBackStack() },
+                onShowSetupGuideClick = { navController.navigate(Screen.Onboarding.route) }
+            )
+        }
 
         composable(Screen.Review.route) {
             ReviewScreen(
@@ -127,6 +133,19 @@ fun AppNavHost(
             )
         ) {
             ChartsScreen(onBackClick = { navController.popBackStack() })
+        }
+
+        composable(Screen.Onboarding.route) {
+            OnboardingScreen(
+                onFinished = { openSettings ->
+                    // Start fresh on Home, with the guide removed from the back stack,
+                    // so the back button never returns into it.
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                    }
+                    if (openSettings) navController.navigate(Screen.Settings.route)
+                }
+            )
         }
     }
 

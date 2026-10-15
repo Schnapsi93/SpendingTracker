@@ -1,6 +1,6 @@
 # Spending Tracker
 
-A personal Android app for tracking monthly income and expenses, with automatic capture of card transactions from bank SMS messages, keyword-based categorization, CSV export/import and monthly backups to a self-hosted Nextcloud.
+A personal Android app for tracking income and expenses period by period, with automatic capture of card transactions from bank SMS messages, keyword-based categorization, charts, CSV export/import and monthly backups to a self-hosted Nextcloud.
 
 Built with Kotlin and Jetpack Compose on a layered, test-covered architecture designed to grow feature by feature.
 
@@ -16,9 +16,11 @@ Built with Kotlin and Jetpack Compose on a layered, test-covered architecture de
 - [Running tests](#running-tests)
 - [How it works](#how-it-works)
   - [Money and time](#money-and-time)
+  - [Periods and carry-over](#periods-and-carry-over)
   - [Database and migrations](#database-and-migrations)
   - [Bank SMS automation](#bank-sms-automation)
   - [Keyword rules](#keyword-rules)
+  - [Charts](#charts)
   - [CSV format](#csv-format)
   - [Nextcloud backup](#nextcloud-backup)
 - [Privacy and security](#privacy-and-security)
@@ -32,33 +34,43 @@ Built with Kotlin and Jetpack Compose on a layered, test-covered architecture de
 ## Features
 
 ### Tracking
-- Add, edit and delete income and expense transactions
-- Monthly overview with income, expenses and balance
-- Spending per category for the selected month
-- Month switcher with a month/year picker for jumping to distant months
-- Transaction list with category color, name and date
+- Add, edit and delete income and expense transactions, with date and time pickers
+- Period overview with income, expenses and balance, plus spending per category
+- Configurable **month start day** (e.g. payday on the 15th: periods run 15th–14th)
+- Optional **carry-over**: each period starts with the balance left from all earlier periods
+- Period switcher with a month/year picker for jumping to distant periods
+- **Search and filter** across all transactions by text, exact amount, type and category, with totals of the results
 
-### Categories
-- Default categories created on first launch
-- Add, rename, recolor and delete categories
+### Charts
+- **Pie chart** of the period's expenses by category, with percentages; categories under 5 % are merged into "Other"
+- List next to the pie with up to 10 categories and exact amounts
+- **Cash flow chart** of the last 12 periods: green income line, red expense line, plus a table with exact amounts
+
+### Categories and rules
+- Default categories created on first launch; add, rename, recolor and delete categories
 - Deleting a category keeps its transactions (they become *Uncategorized*) and removes its keyword rules
+- Keyword rules assign categories to bank transactions automatically
+- Rules screen for adding, editing and deleting rules
 
 ### Automation
 - Reads card transaction SMS from **DH d.d.** and saves them automatically
 - Messages from any other sender are ignored and never stored
-- Automatic categorization through keyword rules (merchant or operation based)
 - Duplicate protection for messages delivered more than once
-- Review queue: automatic transactions are marked *NEW* until confirmed; a Home banner leads to the Review screen with per-item and "Confirm all" confirmation
-- Bank messages that can't be read are kept as *unrecognized messages* (copy, try again after a parser update, or delete)
-- "Apply to all future transactions": correcting an automatic transaction's category can create a keyword rule from its merchant name
-- Rules screen for adding, editing and deleting keyword rules
+- **Review queue**: automatic transactions are marked *NEW* until confirmed; a Home banner leads to the Review screen with per-item and "Confirm all" confirmation
+- Bank messages that can't be read are kept as **unrecognized messages** (copy, try again after a parser update, or delete)
+- **"Apply to all future transactions"**: correcting an automatic transaction's category can create a keyword rule from its merchant name
+- **Notifications** for new automatic transactions (with category) and unreadable messages; tapping opens the Review screen
 - "Test with a message" field to run any bank SMS through the full pipeline
 
 ### Data
-- CSV export of the complete history (semicolon-separated, decimal comma, UTF-8 with BOM, opens correctly in Excel and LibreOffice)
-- CSV import that only adds data, skips duplicates, creates missing categories and reports unreadable rows
-- Accepts files re-saved by Excel (European date formats, Windows-1250 encoding)
+- **One-file backup**: transactions, categories and keyword rules in a single sectioned CSV file
+- CSV export (semicolon-separated, decimal comma, UTF-8 with BOM; opens correctly in Excel and LibreOffice)
+- CSV import that only adds data, skips duplicate transactions, restores categories (with colors) and rules, and reports unreadable rows
+- Accepts files re-saved by Excel (European date formats, Windows-1250 encoding) and older transactions-only exports
 - Monthly automatic backup to Nextcloud over WebDAV, plus a "Back up now" button
+
+### Setup
+- **First-launch setup guide** for SMS, notifications, period settings and backup; can be reopened from Settings
 
 ---
 
@@ -67,7 +79,7 @@ Built with Kotlin and Jetpack Compose on a layered, test-covered architecture de
 | Area | Technology |
 |---|---|
 | Language | Kotlin 2.2 |
-| UI | Jetpack Compose, Material 3 |
+| UI | Jetpack Compose, Material 3; charts drawn with Compose `Canvas` |
 | Architecture | MVVM + clean architecture (UI / domain / data / automation) |
 | Dependency injection | Hilt (with KSP) |
 | Database | Room 2.8 (SQLite), exported schemas, auto-migrations |
@@ -90,9 +102,9 @@ The code is split into layers with a strict dependency direction. The **domain**
 ```mermaid
 flowchart LR
     UI["ui<br/>Compose screens<br/>ViewModels"] --> Domain
-    Automation["automation<br/>SMS receiver<br/>bank parsers"] --> Domain
-    Data["data<br/>Room, CSV,<br/>Nextcloud, Keystore"] --> Domain
-    Domain["domain<br/>models, use cases,<br/>repository interfaces,<br/>rules"]
+    Automation["automation<br/>SMS receiver, parsers,<br/>notifications"] --> Domain
+    Data["data<br/>Room, CSV, settings,<br/>Nextcloud, Keystore"] --> Domain
+    Domain["domain<br/>models, use cases,<br/>repository interfaces,<br/>rules, charts"]
     DI["di<br/>Hilt modules"] -.wires.-> Data
     DI -.wires.-> Automation
 ```
@@ -107,9 +119,10 @@ Screen (Compose) → ViewModel (StateFlow<UiState>) → Use case → Repository 
 
 **Key principles**
 
-- **Single source of truth:** the database. Screens observe `Flow`s and update automatically when data changes.
-- **Interfaces at the boundaries:** repositories, `HistoryExporter`, `HistoryImporter`, `CloudStorage` and `BankMessageParser` are interfaces with replaceable implementations.
+- **Single source of truth:** the database (and live settings). Screens observe `Flow`s and update automatically when data or settings change.
+- **Interfaces at the boundaries:** repositories, `HistoryExporter`, `HistoryImporter`, `CloudStorage`, `BankMessageParser` and `TransactionNotifier` are interfaces with replaceable implementations.
 - **Use cases hold business rules:** validation and decisions live in small, single-purpose classes, never in screens.
+- **Pure calculators for numbers:** period ranges, category breakdowns, cash flow and axis scales are plain functions with unit tests.
 - **Expected failures are values:** operations return `AppResult.Success` / `AppResult.Error` instead of throwing across layers.
 - **Screens are stateless:** each screen draws a `UiState` and forwards user actions to its ViewModel.
 
@@ -119,36 +132,43 @@ Screen (Compose) → ViewModel (StateFlow<UiState>) → Use case → Repository 
 
 ```
 com.aljaz.spendingtracker
-├── SpendingTrackerApp.kt        # Application: Hilt entry, startup tasks, backup schedule
-├── MainActivity.kt
-├── core/                        # AppResult, MoneyParser, MoneyFormatter, month ranges
+├── SpendingTrackerApp.kt        # Application: Hilt entry, startup tasks, backup schedule, notification channel
+├── MainActivity.kt              # Single activity: setup guide on first launch, notification deep link
+├── core/                        # AppResult, MoneyParser, MoneyFormatter, period ranges
 ├── domain/
-│   ├── model/                   # Transaction, Category, CategoryRule, MonthOverview, defaults
+│   ├── model/                   # Transaction, Category, CategoryRule, MonthOverview, TransactionFilter, ...
 │   ├── repository/              # Repository interfaces
 │   ├── usecase/                 # One class per business action
 │   ├── rules/                   # Keyword matching, text normalization, starter rules
+│   ├── charts/                  # Category breakdown, cash flow, axis scale
+│   ├── settings/                # Period settings interface
 │   ├── export/                  # HistoryExporter / HistoryImporter interfaces
 │   └── backup/                  # Backup settings, credentials, CloudStorage interface
 ├── data/
 │   ├── local/                   # Room: AppDatabase, entities, DAOs
 │   ├── mapper/                  # Entity ↔ domain model conversion
 │   ├── repository/              # Room-backed repository implementations
-│   ├── csv/                     # CSV format, reader, formatter, parser, exporter, importer
-│   └── backup/                  # Nextcloud client, Keystore cipher, settings store, worker
+│   ├── settings/                # Period settings and setup-guide flags (SharedPreferences)
+│   ├── csv/                     # CSV format, reader, sections, formatters, parsers, exporter, importers
+│   └── backup/                  # Nextcloud client, Keystore cipher, settings store, worker, scheduler
 ├── automation/
-│   ├── BankMessageProcessor.kt  # Parse → categorize → deduplicate → save (or keep as unrecognized)
+│   ├── BankMessageProcessor.kt  # Parse → categorize → deduplicate → save (or keep as unrecognized) → notify
 │   ├── parser/                  # BankMessageParser interface, DhSmsParser
-│   └── sms/                     # SmsReceiver
+│   ├── sms/                     # SmsReceiver
+│   └── notifications/           # TransactionNotifier, Android implementation, preferences
 ├── di/                          # Hilt modules
 └── ui/
     ├── navigation/              # Routes and NavHost
-    ├── components/              # Reusable widgets (transaction row, month picker, category chips, color dot)
-    ├── home/                    # Month overview and review banner
+    ├── components/              # Shared widgets: transaction row, period header, pickers, chips, permissions
+    ├── home/                    # Period overview and review banner
     ├── transactions/            # Add / edit form, "Apply to all future transactions"
     ├── categories/              # Category management
     ├── rules/                   # Keyword rule management
     ├── review/                  # Review queue and unrecognized messages
-    ├── settings/                # Export, import, bank SMS, Nextcloud backup
+    ├── search/                  # Search and filter
+    ├── charts/                  # Pie chart and cash flow chart
+    ├── settings/                # Export, import, period, bank SMS, notifications, Nextcloud backup
+    ├── onboarding/              # First-launch setup guide
     └── theme/
 
 app/schemas/                     # Exported Room schemas (one JSON per database version)
@@ -172,9 +192,13 @@ app/src/test/                    # Local unit tests
 No API keys or local configuration files are required. Nextcloud settings are entered inside the app.
 
 ### First launch
-- Default categories and starter keyword rules are created automatically.
-- To capture bank SMS, open **Settings → Bank SMS** and allow reading SMS.
-- To enable backups, open **Settings → Nextcloud backup**, enter the server address, username and an **app password**, and tap **Save and test**.
+The setup guide walks through:
+1. **Bank SMS** permission, for automatic transactions
+2. **Notifications** permission (Android 13+)
+3. **Month start day** and **carry-over**
+4. **Nextcloud backup** (server address, username and an **app password**)
+
+Every step is optional and can be changed later in **Settings**. The guide can be reopened with **Settings → Show setup guide**.
 
 > If the app is installed from an APK file instead of Android Studio, newer Android versions may block the SMS permission. Open the app's system settings, choose **⋮ → Allow restricted settings**, then grant the permission.
 
@@ -195,13 +219,20 @@ All tests are local JVM unit tests and run in seconds without an emulator.
 | Test class | Covers |
 |---|---|
 | `MoneyParserTest` | Parsing typed amounts into cents, formatting them back |
-| `TransactionCsvFormatterTest` | CSV output format, escaping, ordering |
+| `TransactionCsvFormatterTest` | Transaction CSV output, escaping, ordering |
 | `TransactionCsvParserTest` | CSV reading, round trips, Excel-style dates, error reporting |
+| `ConfigurationCsvTest` | Categories and rules sections, colors, round trips |
+| `BackupFileTest` | Splitting a backup file into its sections |
 | `ScheduledBackupTest` | Monthly backup decision, empty-history guard |
 | `DhSmsParserTest` | All supported DH SMS formats, sender matching |
 | `CategoryRuleMatcherTest` | Keyword matching, priorities, whole-word behavior |
 | `CreateRuleFromTransactionTest` | Rules created from corrected transactions, typo guard |
 | `SaveRuleUseCaseTest` | Saving and editing rules by hand |
+| `TransactionFilterTest` | Search by text, amount, type and category |
+| `PeriodTest` | Period ranges, month start day, clamping in short months |
+| `MonthSummaryTest` | Balance with and without carry-over |
+| `CategoryBreakdownTest` | Pie slices, "Other" merging, legend limit |
+| `CashFlowTest` | Grouping into periods, round axis maximums |
 
 When fixing a bug, first add a failing test that reproduces it, then fix the code until the test passes.
 
@@ -213,7 +244,14 @@ When fixing a bug, first add a failing test that reproduces it, then fix the cod
 - **Amounts** are stored as `Long` minor units (cents): `12.50 EUR` is stored as `1250`. Floating-point types are never used for money.
 - **User input** accepts both `12.50` and `12,50` (`MoneyParser`).
 - **Timestamps** are stored as UTC epoch milliseconds and converted to local time only for display.
-- **Month boundaries** are calculated in the phone's time zone, so a purchase at 23:30 on the last day of the month belongs to that month.
+- **Period boundaries** are calculated in the phone's time zone, so a purchase at 23:30 on the last day belongs to that period.
+
+### Periods and carry-over
+- A **period** is the app's month. With month start day **1** it is the calendar month. With e.g. **15**, the period called *October* runs from 15 October to 14 November: it is **named after the month it starts in**.
+- If the start day doesn't exist in a month (29–31), that period starts on the month's last day.
+- The **current period** depends on today: on 10 October with start day 15, the current period is *September*.
+- With **carry-over** on, a period's balance is *income − expenses + everything left from earlier periods*. The carried amount is computed by one SQL sum over all transactions before the period start, so it stays fast and updates live.
+- The monthly cloud backup and the CSV files are not affected by period settings.
 
 ### Database and migrations
 
@@ -225,6 +263,8 @@ Room database `spending_tracker.db`, with the schema of every version exported t
 | 2 | `categories` table | Auto-migration |
 | 3 | `category_rules` table | Auto-migration |
 | 4 | `unrecognized_messages` table | Auto-migration |
+
+Small settings (period settings, notification switch, setup-guide flag, backup settings) live in private `SharedPreferences`; the Nextcloud app password is stored only in encrypted form.
 
 **Changing the schema:**
 1. Change or add the entity.
@@ -241,11 +281,11 @@ flowchart TD
     A[SMS received] --> B{Sender is a known bank?}
     B -- no --> X[Ignored, nothing stored]
     B -- yes --> C[Parser extracts operation, date,<br/>amount, currency, merchant, card]
-    C -- cannot be read --> U[Kept as unrecognized message<br/>for copy / retry / delete]
+    C -- cannot be read --> U[Kept as unrecognized message<br/>+ notification]
     C --> D[Keyword rules pick a category]
     D --> E{Same fingerprint already saved?}
     E -- yes --> F[Skipped as duplicate]
-    E -- no --> G[Saved as SMS transaction,<br/>marked not reviewed]
+    E -- no --> G[Saved as SMS transaction, marked NEW<br/>+ notification]
 ```
 
 **Supported message format (DH d.d.):**
@@ -260,7 +300,7 @@ Obvestilo o transakciji: POS NAKUP, 13.10.2026 15:37, kartica ***1754, znesek 16
 | `SPLET/TEL NAKUP` | Online or phone payment | Expense |
 | `BA DVIG` | ATM withdrawal | Expense |
 
-Unknown operations are not saved, so the app never guesses.
+Unknown operations are not saved as transactions, so the app never guesses; they appear under *Unrecognized messages* instead.
 
 ### Keyword rules
 
@@ -273,15 +313,34 @@ A rule says *"when this keyword appears in the merchant (or the operation), use 
   3. The newest rule wins a tie
 - Each keyword points to exactly one category; saving the same keyword again replaces the old rule.
 - Starter rules are created on first launch (`StarterRules.kt`), together with any categories they need.
-- New rules come from two places: **"Apply to all future transactions"** in the edit form of an automatic transaction (the keyword must appear in that merchant's name), and the **Rules screen** (Categories → Rules).
+- New rules come from **"Apply to all future transactions"** in the edit form of an automatic transaction (the keyword must appear in that merchant's name) and from the **Rules screen** (Categories → Rules).
 - Deleting a rule never changes transactions that were already saved.
+
+### Charts
+
+Opened with **Charts >** in Home's summary card, on the period Home is showing.
+
+- **By category:** a pie of the period's expenses. Categories under 5 % are merged into one "Other" slice (a single small category keeps its own slice). The list next to it shows up to 10 categories with exact amounts and percentages; any more are summed into an "Other" line, so the list always adds up to the total.
+- **Cash flow:** 12 periods ending with the selected one; income in green, expenses in red. The Y axis uses round values (steps of 1, 2, 2.5 or 5 × 10ⁿ euros). A table below shows the exact amounts, newest first.
+- Both charts follow the month start day and are drawn with Compose `Canvas`, without a chart library.
 
 ### CSV format
 
+A complete backup is **one file** with three sections, each starting with a marker line and its own header:
+
 ```
+[Transactions]
 Date;Type;Amount;Currency;Category;Title;Note;Source
 2026-10-11 19:38;Expense;11,27;EUR;Car / Fuel;BS LOGO BREZOVICA;;SMS
 2026-10-14 08:15;Income;1500,00;EUR;Salary;October salary;;MANUAL
+
+[Categories]
+Name;Type;Color
+Car / Fuel;Expense;#F44336
+
+[Rules]
+Keyword;Looks at;Category;Category type
+BS LOGO;Merchant;Car / Fuel;Expense
 ```
 
 | Property | Value |
@@ -292,17 +351,19 @@ Date;Type;Amount;Currency;Category;Title;Note;Source
 | Line ending | `\r\n` |
 | Date | `yyyy-MM-dd HH:mm`, local time |
 | Amount | Always positive; `Type` says income or expense |
+| Colors | `#RRGGBB` |
 | Quoting | Standard CSV: fields containing `;`, `"` or line breaks are quoted, inner quotes doubled |
-| Row order | Oldest first |
+| Row order | Transactions oldest first |
 
-**Import** additionally accepts `d.M.yyyy H:mm` dates and Windows-1250 encoded files (as saved by Excel on Slovenian systems). Rows are matched as duplicates by date (to the minute), type, amount, currency and title.
+**Import** recognizes each section by its header row and imports categories first, then rules, then transactions. It also accepts files without section markers (older transactions-only exports), `d.M.yyyy H:mm` dates and Windows-1250 encoded files (as saved by Excel on Slovenian systems). Transactions are matched as duplicates by date (to the minute), type, amount, currency and title.
 
 ### Nextcloud backup
 
 - Uses Nextcloud's built-in WebDAV endpoint: `<server>/remote.php/dav/files/<username>/<folder>/`
-- Each backup uploads the **complete history** as `spending_backup.csv`, replacing the previous file. Nextcloud's file versioning keeps older copies (file details → *Versions*).
+- Each backup uploads the complete file as `spending_backup.csv`, replacing the previous one. Nextcloud's file versioning keeps older copies (file details → *Versions*).
 - A WorkManager job runs **once a day when the phone is online** and uploads only if no backup succeeded yet in the current calendar month. Failed uploads are retried with exponential backoff.
 - An **empty history is never uploaded**, so a fresh install cannot overwrite a real backup.
+- **Restoring** after a phone reset: download `spending_backup.csv` from Nextcloud and import it in Settings.
 
 ---
 
@@ -310,6 +371,7 @@ Date;Type;Amount;Currency;Category;Title;Note;Source
 
 - **SMS:** only messages from registered bank senders are read. All others are dropped before parsing and never stored or logged. Message bodies are never written to the log. Bank messages that can't be parsed are stored locally only, so the user can inspect or delete them.
 - **Receiver protection:** the SMS receiver requires the `BROADCAST_SMS` permission, so only the Android system can deliver messages to it.
+- **Notifications** show amount, merchant and category on the lock screen according to the phone's notification settings; they can be turned off in the app.
 - **Credentials:** the Nextcloud **app password** is encrypted with an AES-256-GCM key held in the Android Keystore; the key never leaves the device. After restoring the app on another device the password must be entered again.
 - **Transport:** server addresses must use `https://`. Plain HTTP is rejected.
 - **Least privilege:** use a Nextcloud *app password* (revocable at any time), never the account password.
@@ -322,15 +384,15 @@ Date;Type;Amount;Currency;Category;Title;Note;Source
 ## Extending the app
 
 ### Support a new message format from the same bank
-1. Copy the real message into a new test in `DhSmsParserTest`. Run it and confirm it fails.
+1. Copy the real message (Review → Unrecognized messages → **Copy**) into a new test in `DhSmsParserTest`. Run it and confirm it fails.
 2. Update `DhSmsParser` (usually one line in `typeOf()`).
-3. Run all tests until everything is green.
+3. Run all tests until everything is green, then use **Try again** on the stored message.
 
 ### Support another bank or Google Wallet
 1. Create a class implementing `BankMessageParser` (`acceptsSender` + `parse`), with its own test class.
 2. Register it in `di/AutomationModule.kt` with one `@Binds @IntoSet` function.
 
-`BankMessageProcessor`, the keyword rules, duplicate detection and the receiver work with it unchanged.
+`BankMessageProcessor`, the keyword rules, duplicate detection, notifications and the review queue work with it unchanged.
 
 ### Add a screen
 1. Add a route to `ui/navigation/Screen.kt`.
@@ -350,19 +412,21 @@ Implement `HistoryExporter` / `HistoryImporter` or `CloudStorage` and bind the n
 | 2. Manual add, edit and delete; month overview | ✅ Done |
 | 3. Categories, per-category spending, category management | ✅ Done |
 | 4. CSV export/import, Nextcloud backup | ✅ Done |
-| 5. Bank SMS automation | ✅ Done |
-| &nbsp;&nbsp;5.1 SMS parser | ✅ Done |
-| &nbsp;&nbsp;5.2 Keyword rules and automatic categorization | ✅ Done |
-| &nbsp;&nbsp;5.3 Receiving SMS and saving transactions | ✅ Done |
-| &nbsp;&nbsp;5.4 Review queue | ✅ Done |
-| &nbsp;&nbsp;5.4b Unrecognized messages | ✅ Done |
-| &nbsp;&nbsp;5.5 "Apply to all future transactions" | ✅ Done |
-| &nbsp;&nbsp;5.6 Rules management screen | ✅ Done |
-| 6. Google Wallet notifications | ⏳ Planned |
-| 7. Settings polish, onboarding for permissions | ⏳ Planned |
+| 5. Bank SMS automation: parser, rules, review queue, unrecognized messages, rule management | ✅ Done |
+| 6. Google Wallet notifications | ⏸ Deferred (Wallet payments already arrive as bank SMS) |
+| 7. Polish and everyday comfort | ✅ Done |
+| &nbsp;&nbsp;7.1 Date and time picker | ✅ Done |
+| &nbsp;&nbsp;7.2 Categories and rules in the (single-file) backup | ✅ Done |
+| &nbsp;&nbsp;7.3 Search and filter | ✅ Done |
+| &nbsp;&nbsp;7.4 Notifications for new SMS transactions | ✅ Done |
+| &nbsp;&nbsp;7.5 First-launch setup guide | ✅ Done |
+| &nbsp;&nbsp;7.6 Pie chart by category | ✅ Done |
+| &nbsp;&nbsp;7.7 Cash flow chart | ✅ Done |
+| &nbsp;&nbsp;7.8 Month start day | ✅ Done |
+| &nbsp;&nbsp;7.9 Carry-over mode | ✅ Done |
 | 8. Testing, polish and release preparation | ⏳ Planned |
 
-**Ideas for later:** date picker in the transaction form, budgets per category, charts, recurring transactions, multi-currency, home screen widget, including rules and category colors in backups, applying a new rule to past uncategorized transactions.
+**Ideas for later:** week start day and weekly view, budgets per category, recurring transactions, multi-currency, home screen widget, applying a new rule to past uncategorized transactions, tap-to-inspect values on the cash flow chart.
 
 ---
 
@@ -373,7 +437,8 @@ Implement `HistoryExporter` / `HistoryImporter` or `CloudStorage` and bind the n
 - No business logic in screens or ViewModels beyond presentation.
 - Money as `Long` minor units; time as UTC epoch milliseconds.
 - New logic comes with unit tests; parsers are tested against real messages.
-- Format code with **Ctrl+Alt+L** (Android Studio) before committing.
+- Shared UI pieces live in `ui/components` instead of being copied between screens.
+- Format code with **Ctrl+Alt+L** and clean imports with **Ctrl+Alt+O** (Android Studio) before committing.
 - Commit after every working step, with a message describing the step.
 
 ---
