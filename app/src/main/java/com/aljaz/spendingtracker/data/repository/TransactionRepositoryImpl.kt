@@ -44,4 +44,12 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun getAll(): List<Transaction> =
         dao.getAll().map { it.toDomain() }
 
+
+    override fun observeUnreviewed(): Flow<List<Transaction>> =
+        dao.observeUnreviewed().map { entities -> entities.map { it.toDomain() } }
+
+    override suspend fun markReviewed(ids: List<Long>) {
+        if (ids.isNotEmpty()) dao.markReviewed(ids)
+    }
+
 }

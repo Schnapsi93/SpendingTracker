@@ -36,4 +36,11 @@ interface TransactionRepository {
 
     /** Every transaction, oldest first. Used for exports and backups. */
     suspend fun getAll(): List<Transaction>
+
+
+    /** Automatic transactions not yet confirmed, newest first; updates automatically. */
+    fun observeUnreviewed(): Flow<List<Transaction>>
+
+    /** Marks the given transactions as confirmed by the user. */
+    suspend fun markReviewed(ids: List<Long>)
 }

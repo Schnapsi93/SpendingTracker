@@ -14,11 +14,13 @@ import java.time.YearMonth
  * @property expenseByCategory expense totals per category, largest first
  * @property transactions the month's transactions, newest first
  * @property categoriesById all categories, keyed by id for quick lookup
+ * @property unreviewedCount automatic transactions waiting for review, in all months
  */
 data class HomeUiState(
     val month: YearMonth,
     val summary: MonthSummary = MonthSummary(),
     val expenseByCategory: List<CategoryTotal> = emptyList(),
     val transactions: List<Transaction> = emptyList(),
-    val categoriesById: Map<Long, Category> = emptyMap()
+    val categoriesById: Map<Long, Category> = emptyMap(),
+    val unreviewedCount: Int = 0
 )

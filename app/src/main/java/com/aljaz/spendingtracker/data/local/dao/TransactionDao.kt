@@ -64,4 +64,13 @@ interface TransactionDao {
      */
     @Query("UPDATE transactions SET categoryId = NULL WHERE categoryId = :categoryId")
     suspend fun clearCategory(categoryId: Long)
+
+
+    /** Streams automatic transactions not yet confirmed by the user, newest first. */
+    @Query("SELECT * FROM transactions WHERE reviewed = 0 ORDER BY timestamp DESC")
+    fun observeUnreviewed(): Flow<List<TransactionEntity>>
+
+    /** Marks the given transactions as confirmed. */
+    @Query("UPDATE transactions SET reviewed = 1 WHERE id IN (:ids)")
+    suspend fun markReviewed(ids: List<Long>)
 }

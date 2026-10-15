@@ -31,4 +31,9 @@ sealed class Screen(val route: String) {
 
     /** App settings: export, and later the cloud backup. */
     data object Settings : Screen("settings")
+
+    /** Automatic transactions waiting for the user's confirmation. */
+    data object Review : Screen("review")
 }
+
+

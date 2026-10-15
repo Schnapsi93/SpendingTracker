@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aljaz.spendingtracker.domain.usecase.ObserveCategoriesUseCase
 import com.aljaz.spendingtracker.domain.usecase.ObserveMonthOverviewUseCase
+import com.aljaz.spendingtracker.domain.usecase.ObserveUnreviewedTransactionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,39 +20,42 @@ import javax.inject.Inject
 
 /**
  * Logic behind the Home screen: which month is selected, plus the
- * transactions, totals and categories needed to draw it.
+ * transactions, totals, categories and review count needed to draw it.
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     observeMonthOverview: ObserveMonthOverviewUseCase,
-    observeCategories: ObserveCategoriesUseCase
+    observeCategories: ObserveCategoriesUseCase,
+    observeUnreviewed: ObserveUnreviewedTransactionsUseCase
 ) : ViewModel() {
 
     private val selectedMonth = MutableStateFlow(YearMonth.now())
 
     /**
-     * Combines two independent streams into one screen state:
+     * Combines three independent streams into one screen state:
      *
      * 1. The selected month's overview. flatMapLatest switches to the new
      *    month whenever the selection changes and drops the old one.
      * 2. All categories, so each row can show its category's name and color.
+     * 3. The number of automatic transactions waiting for review.
      *
-     * Whenever either stream emits (new transaction, renamed category,
-     * different month), a fresh state is produced.
+     * Whenever any stream emits, a fresh state is produced.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<HomeUiState> = combine(
         selectedMonth.flatMapLatest { month ->
             observeMonthOverview(month).map { overview -> month to overview }
         },
-        observeCategories()
-    ) { (month, overview), categories ->
+        observeCategories(),
+        observeUnreviewed().map { it.size }
+    ) { (month, overview), categories, unreviewedCount ->
         HomeUiState(
             month = month,
             summary = overview.summary,
             expenseByCategory = overview.expenseByCategory,
             transactions = overview.transactions,
-            categoriesById = categories.associateBy { it.id }
+            categoriesById = categories.associateBy { it.id },
+            unreviewedCount = unreviewedCount
         )
     }.stateIn(
         scope = viewModelScope,

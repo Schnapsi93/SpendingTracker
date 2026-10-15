@@ -13,9 +13,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
-
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -28,7 +28,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,19 +36,11 @@ import com.aljaz.spendingtracker.core.MoneyFormatter
 import com.aljaz.spendingtracker.domain.model.Category
 import com.aljaz.spendingtracker.domain.model.CategoryTotal
 import com.aljaz.spendingtracker.domain.model.MonthSummary
-import com.aljaz.spendingtracker.domain.model.Transaction
-import com.aljaz.spendingtracker.domain.model.TransactionType
 import com.aljaz.spendingtracker.ui.components.ColorDot
 import com.aljaz.spendingtracker.ui.components.MonthPickerDialog
-import java.time.Instant
+import com.aljaz.spendingtracker.ui.components.TransactionRow
 import java.time.YearMonth
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import androidx.compose.ui.tooling.preview.Preview
-
-
-
 
 
 /** Currency used for the totals until multi-currency support exists. */
@@ -63,6 +54,7 @@ private const val DISPLAY_CURRENCY = "EUR"
  * @param onTransactionClick called with a transaction's id when its row is tapped
  * @param onCategoriesClick called when the user wants to manage categories
  * @param onSettingsClick called when the user wants to open the settings
+ * @param onReviewClick called when the user opens the review queue
  * @param viewModel provided by Hilt automatically
  */
 @Composable
@@ -71,6 +63,7 @@ fun HomeScreen(
     onTransactionClick: (Long) -> Unit,
     onCategoriesClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onReviewClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -115,6 +108,13 @@ fun HomeScreen(
                 // Extra bottom space so the button never covers the last row.
                 contentPadding = PaddingValues(bottom = 88.dp)
             ) {
+                // Shown only while automatic transactions wait for confirmation.
+                if (state.unreviewedCount > 0) {
+                    item(key = "review_banner") {
+                        ReviewBanner(count = state.unreviewedCount, onClick = onReviewClick)
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
                 item(key = "summary") {
                     SummaryCard(summary = state.summary)
                     Spacer(modifier = Modifier.height(16.dp))
@@ -295,62 +295,33 @@ private fun CategoryTotalRow(
     }
 }
 
-/**
- * One transaction in the list: color dot, title, category and date
- * on the left, amount on the right. Tapping it opens the edit form.
- *
- * @param category the transaction's category, or null if uncategorized
- */
+/** Highlighted card telling the user how many automatic transactions await review. */
 @Composable
-private fun TransactionRow(
-    transaction: Transaction,
-    category: Category?,
-    onClick: () -> Unit
-) {
-    val isIncome = transaction.type == TransactionType.INCOME
-    val sign = if (isIncome) "+" else "-"
-    val amountColor =
-        if (isIncome) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-
-    val date = Instant.ofEpochMilli(transaction.timestamp)
-        .atZone(ZoneId.systemDefault())
-        .toLocalDate()
-        .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
-
-    // Uncategorized transactions get a neutral grey dot.
-    val dotColor = category?.colorArgb
-        ?: MaterialTheme.colorScheme.outlineVariant.toArgb()
-    val categoryName = category?.name ?: "Uncategorized"
-
-    Row(
+private fun ReviewBanner(count: Int, onClick: () -> Unit) {
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        ColorDot(colorArgb = dotColor)
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Takes all remaining width, so long titles never push the amount off screen.
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = transaction.title,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "$categoryName · $date",
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = sign + MoneyFormatter.format(transaction.amountMinor, transaction.currency),
-            color = amountColor,
-            style = MaterialTheme.typography.bodyLarge
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
         )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (count == 1) {
+                    "1 automatic transaction to review"
+                } else {
+                    "$count automatic transactions to review"
+                },
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Text(text = "Review >", style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
