@@ -31,6 +31,9 @@ import com.aljaz.spendingtracker.domain.charts.ChartSlice
 import com.aljaz.spendingtracker.ui.components.ColorDot
 import com.aljaz.spendingtracker.ui.components.PeriodHeader
 import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import java.time.format.DateTimeFormatter
 
 /** Currency used for the totals until multi-currency support exists. */
 private const val DISPLAY_CURRENCY = "EUR"
@@ -90,10 +93,7 @@ fun ChartsScreen(
 
             when (tab) {
                 ChartTab.CATEGORIES -> CategoryChart(state)
-                ChartTab.CASH_FLOW -> Text(
-                    text = "The cash flow chart comes in the next step.",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                ChartTab.CASH_FLOW -> CashFlowSection(state)
             }
         }
     }
@@ -184,4 +184,74 @@ private fun LegendItem(color: Color, name: String, amount: String, percent: Stri
 private fun percentText(share: Double): String {
     val percent = (share * 100).roundToInt()
     return if (percent == 0 && share > 0) "<1 %" else "$percent %"
+}
+
+
+/**
+ * Cash flow of the 12 periods ending with the selected one: the line
+ * chart, its legend, and a table with the exact amounts.
+ */
+@Composable
+private fun CashFlowSection(state: ChartsUiState) {
+    if (state.isLoading) return
+
+    val points = state.cashFlow
+    if (points.all { it.incomeMinor == 0L && it.expenseMinor == 0L }) {
+        Text(
+            text = "No transactions in these 12 months.",
+            style = MaterialTheme.typography.bodyLarge
+        )
+        return
+    }
+
+    Text(text = "Last 12 months", style = MaterialTheme.typography.titleMedium)
+
+    CashFlowChart(
+        points = points,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(240.dp)
+    )
+
+    // Legend
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ColorDot(colorArgb = CashFlowColors.Income.toArgb())
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(text = "Income", style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ColorDot(colorArgb = CashFlowColors.Expense.toArgb())
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(text = "Expenses", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+
+    // Exact amounts, newest first.
+    val monthFormat = DateTimeFormatter.ofPattern("LLL yyyy")
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        points.asReversed().forEach { point ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = point.month.format(monthFormat),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "+" + MoneyFormatter.format(point.incomeMinor, DISPLAY_CURRENCY),
+                    color = CashFlowColors.Income,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = "−" + MoneyFormatter.format(point.expenseMinor, DISPLAY_CURRENCY),
+                    color = CashFlowColors.Expense,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
 }

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.aljaz.spendingtracker.core.periodContaining
 import com.aljaz.spendingtracker.domain.charts.CategoryBreakdownCalculator
 import com.aljaz.spendingtracker.domain.settings.PeriodSettingsRepository
+import com.aljaz.spendingtracker.domain.usecase.ObserveCashFlowUseCase
 import com.aljaz.spendingtracker.domain.usecase.ObserveCategoriesUseCase
 import com.aljaz.spendingtracker.domain.usecase.ObserveMonthOverviewUseCase
 import com.aljaz.spendingtracker.ui.navigation.CHARTS_MONTH_ARG
@@ -24,13 +25,14 @@ import java.time.YearMonth
 import javax.inject.Inject
 
 /**
- * Logic behind the Charts screen: which period is shown, and the
- * category breakdown for it.
+ * Logic behind the Charts screen: which period is shown, the category
+ * breakdown for it, and the cash flow of the 12 periods ending with it.
  */
 @HiltViewModel
 class ChartsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     observeMonthOverview: ObserveMonthOverviewUseCase,
+    observeCashFlow: ObserveCashFlowUseCase,
     observeCategories: ObserveCategoriesUseCase,
     periodSettings: PeriodSettingsRepository
 ) : ViewModel() {
@@ -42,21 +44,25 @@ class ChartsViewModel @Inject constructor(
             ?: periodContaining(LocalDate.now(), periodSettings.monthStartDay.value)
     )
 
+    /** The selected period together with the month start day; both charts follow it. */
+    private val period = combine(selectedMonth, periodSettings.monthStartDay) { month, startDay ->
+        month to startDay
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<ChartsUiState> = combine(
-        combine(selectedMonth, periodSettings.monthStartDay) { month, startDay -> month to startDay }
-            .flatMapLatest { (month, startDay) ->
-                observeMonthOverview(month, startDay).map { overview ->
-                    Triple(month, startDay, overview)
-                }
-            },
+        period.flatMapLatest { (month, startDay) ->
+            observeMonthOverview(month, startDay).map { overview -> Triple(month, startDay, overview) }
+        },
+        period.flatMapLatest { (month, startDay) -> observeCashFlow(month, startDay) },
         observeCategories()
-    ) { (month, startDay, overview), categories ->
+    ) { (month, startDay, overview), cashFlow, categories ->
         ChartsUiState(
             month = month,
             monthStartDay = startDay,
             currentPeriod = periodContaining(LocalDate.now(), startDay),
             breakdown = CategoryBreakdownCalculator.calculate(overview.expenseByCategory),
+            cashFlow = cashFlow,
             categoriesById = categories.associateBy { it.id },
             isLoading = false
         )

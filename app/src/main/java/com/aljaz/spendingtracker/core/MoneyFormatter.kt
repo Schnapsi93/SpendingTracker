@@ -27,4 +27,21 @@ object MoneyFormatter {
         // valueOf(1250, 2) means 1250 with 2 decimal places = 12.50
         return formatter.format(BigDecimal.valueOf(amountMinor, 2))
     }
+
+
+    /**
+     * Like [format], but rounded to whole units without decimals,
+     * e.g. "€1,000". Used for chart axes.
+     */
+    fun formatWhole(
+        amountMinor: Long,
+        currencyCode: String,
+        locale: Locale = Locale.getDefault()
+    ): String {
+        val formatter = NumberFormat.getCurrencyInstance(locale)
+        formatter.currency = Currency.getInstance(currencyCode)
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 0
+        return formatter.format(BigDecimal.valueOf(amountMinor, 2))
+    }
 }
