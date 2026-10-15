@@ -46,11 +46,13 @@ import com.aljaz.spendingtracker.ui.components.ColorDot
  * Categories can be added, renamed, recolored and deleted here.
  *
  * @param onBackClick called when the user wants to return to Home
+ * @param onRulesClick called when the user wants to manage keyword rules
  * @param viewModel provided by Hilt automatically
  */
 @Composable
 fun CategoriesScreen(
     onBackClick: () -> Unit,
+    onRulesClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CategoriesViewModel = hiltViewModel()
 ) {
@@ -71,7 +73,12 @@ fun CategoriesScreen(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBackClick) { Text("< Back") }
-                Text(text = "Categories", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    text = "Categories",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onRulesClick) { Text("Rules >") }
             }
 
             LazyColumn(

@@ -34,6 +34,9 @@ sealed class Screen(val route: String) {
 
     /** Automatic transactions waiting for the user's confirmation. */
     data object Review : Screen("review")
+
+    /** Keyword rules for automatic categorization. */
+    data object Rules : Screen("rules")
 }
 
 
