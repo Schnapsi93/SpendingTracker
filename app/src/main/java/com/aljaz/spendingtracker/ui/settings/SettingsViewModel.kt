@@ -31,6 +31,7 @@ import com.aljaz.spendingtracker.automation.BankMessageResult
 import com.aljaz.spendingtracker.automation.parser.DhSmsParser
 import com.aljaz.spendingtracker.core.MoneyFormatter
 import com.aljaz.spendingtracker.domain.model.TransactionSource
+import com.aljaz.spendingtracker.automation.notifications.NotificationPreferences
 
 /**
  * Logic behind the Settings screen: CSV export and import, and the
@@ -48,7 +49,8 @@ class SettingsViewModel @Inject constructor(
     private val saveBackupSettings: SaveBackupSettingsUseCase,
     private val testCloudConnection: TestCloudConnectionUseCase,
     private val runCloudBackup: RunCloudBackupUseCase,
-    private val bankMessageProcessor: BankMessageProcessor
+    private val bankMessageProcessor: BankMessageProcessor,
+    private val notificationPreferences: NotificationPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -56,6 +58,7 @@ class SettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { refreshCloudForm() }
+        _uiState.update { it.copy(notificationsEnabled = notificationPreferences.isEnabled()) }
     }
 
     // ---------- Export ----------
@@ -149,6 +152,15 @@ class SettingsViewModel @Inject constructor(
             if (hidden > 0) append("\n…and $hidden more.")
         }
     }
+
+    // ---------- Notifications ----------
+
+    /** Turns notifications about new bank transactions on or off. */
+    fun onNotificationsToggle(enabled: Boolean) {
+        notificationPreferences.setEnabled(enabled)
+        _uiState.update { it.copy(notificationsEnabled = enabled) }
+    }
+
     // ---------- Bank SMS ----------
 
     fun onSmsTestTextChange(value: String) =

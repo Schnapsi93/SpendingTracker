@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.aljaz.spendingtracker.data.backup.BackupScheduler
 import com.aljaz.spendingtracker.domain.usecase.EnsureStarterRulesUseCase
+import com.aljaz.spendingtracker.automation.notifications.AndroidTransactionNotifier
 
 /**
  * Application entry point.
@@ -42,5 +43,7 @@ class SpendingTrackerApp : Application() {
             ensureStarterRules()
         }
         BackupScheduler.schedule(this) // daily check for the monthly cloud backup
+        AndroidTransactionNotifier.createChannel(this) // "New transactions" notifications
+
     }
 }

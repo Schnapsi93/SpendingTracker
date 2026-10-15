@@ -14,6 +14,7 @@ import com.aljaz.spendingtracker.ui.settings.SettingsScreen
 import com.aljaz.spendingtracker.ui.review.ReviewScreen
 import com.aljaz.spendingtracker.ui.rules.RulesScreen
 import com.aljaz.spendingtracker.ui.search.SearchScreen
+import androidx.compose.runtime.LaunchedEffect
 
 /**
  * The app's navigation graph: which screen is shown for which route,
@@ -21,9 +22,13 @@ import com.aljaz.spendingtracker.ui.search.SearchScreen
  *
  * Screens never touch the NavController directly. They receive simple
  * callbacks (like onBackClick), which keeps them easy to test and reuse.
+ * @param openReviewRequests changes whenever a notification asks to show the Review screen
  */
 @Composable
-fun AppNavHost(modifier: Modifier = Modifier) {
+fun AppNavHost(
+    modifier: Modifier = Modifier,
+    openReviewRequests: Int = 0
+) {
     val navController = rememberNavController()
 
     NavHost(
@@ -103,6 +108,15 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                     navController.navigate(Screen.EditTransaction.createRoute(id))
                 }
             )
+        }
+    }
+
+    // A tapped notification asks for the Review screen.
+    LaunchedEffect(openReviewRequests) {
+        if (openReviewRequests > 0) {
+            navController.navigate(Screen.Review.route) {
+                launchSingleTop = true // never stack two Review screens
+            }
         }
     }
 }

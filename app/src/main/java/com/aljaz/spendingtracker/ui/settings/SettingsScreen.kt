@@ -37,6 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import android.os.Build
+import androidx.compose.material3.Switch
 
 /**
  * Settings screen: CSV export and import, and the Nextcloud backup.
@@ -118,6 +120,12 @@ fun SettingsScreen(
                 test = state.smsTest,
                 onTestTextChange = viewModel::onSmsTestTextChange,
                 onProcessTest = viewModel::onProcessSmsTestClick
+            )
+
+            // ----- Notifications -----
+            NotificationsCard(
+                enabled = state.notificationsEnabled,
+                onToggle = viewModel::onNotificationsToggle
             )
 
             // ----- Nextcloud backup -----
@@ -297,6 +305,65 @@ private fun BankSmsCard(
             }
             test.result?.let { result ->
                 Text(text = result, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}
+
+
+/**
+ * Notifications card: on/off switch, and on Android 13+ the system
+ * permission that notifications need.
+ */
+@Composable
+private fun NotificationsCard(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+
+    // Permission state is Android-specific UI state, so it lives here.
+    var permissionGranted by remember {
+        mutableStateOf(
+            !needsPermission ||
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted -> permissionGranted = granted }
+    )
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(text = "Notifications", style = MaterialTheme.typography.titleMedium)
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Notify me about new bank transactions",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(checked = enabled, onCheckedChange = onToggle)
+            }
+
+            if (enabled && !permissionGranted) {
+                Text(
+                    text = "Android needs your permission to show notifications.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Button(onClick = {
+                    if (needsPermission) {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }) {
+                    Text("Allow notifications")
+                }
             }
         }
     }

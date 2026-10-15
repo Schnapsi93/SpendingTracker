@@ -7,6 +7,9 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
+import com.aljaz.spendingtracker.automation.notifications.AndroidTransactionNotifier
+import com.aljaz.spendingtracker.automation.notifications.TransactionNotifier
+import javax.inject.Singleton
 
 /**
  * Registers the bank message parsers.
@@ -22,4 +25,10 @@ abstract class AutomationModule {
     @Binds
     @IntoSet
     abstract fun bindDhSmsParser(impl: DhSmsParser): BankMessageParser
+
+
+    /** Notifications about automatically added transactions. */
+    @Binds
+    @Singleton
+    abstract fun bindTransactionNotifier(impl: AndroidTransactionNotifier): TransactionNotifier
 }

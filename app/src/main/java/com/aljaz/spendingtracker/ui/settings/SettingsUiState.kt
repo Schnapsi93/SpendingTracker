@@ -46,13 +46,16 @@ data class CloudFormState(
  * @property message result of the last export or import, or null
  * @property cloud the Nextcloud backup form
  * @property smsTest the bank SMS test field
+ * @property notificationsEnabled whether new bank transactions show a notification
  */
 data class SettingsUiState(
     val isExporting: Boolean = false,
     val isImporting: Boolean = false,
     val message: String? = null,
     val cloud: CloudFormState = CloudFormState(),
-    val smsTest: SmsTestState = SmsTestState()
+    val smsTest: SmsTestState = SmsTestState(),
+    val notificationsEnabled: Boolean = true
+
 ) {
     /** True while any file operation runs; buttons are disabled meanwhile. */
     val isBusy: Boolean

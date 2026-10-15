@@ -1,48 +1,60 @@
 package com.aljaz.spendingtracker
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.aljaz.spendingtracker.ui.theme.SpendingTrackerTheme
-
-import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import com.aljaz.spendingtracker.ui.navigation.AppNavHost
 import com.aljaz.spendingtracker.ui.theme.SpendingTrackerTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+/**
+ * The app's only activity; every screen is a Compose destination inside it.
+ *
+ * It also handles the "open the Review screen" request that comes with
+ * a tapped notification, whether the app was closed or already open.
+ */
 @AndroidEntryPoint
-
 class MainActivity : ComponentActivity() {
+
+    /**
+     * Counts "open Review" requests from notifications. The UI reacts to
+     * every change, so tapping several notifications in a row works.
+     */
+    private var openReviewRequests by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Only on a fresh start; after a screen rotation the request was already handled.
+        if (savedInstanceState == null) handleIntent(intent)
+
         setContent {
             SpendingTrackerTheme {
-                AppNavHost()
+                AppNavHost(openReviewRequests = openReviewRequests)
             }
         }
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+    /** Called instead of onCreate when a notification is tapped while the app is open. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    SpendingTrackerTheme {
-        Greeting("Android")
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_REVIEW, false) == true) {
+            openReviewRequests++
+        }
+    }
+
+    companion object {
+        /** Intent extra set by notifications: "show the Review screen". */
+        const val EXTRA_OPEN_REVIEW = "open_review"
     }
 }

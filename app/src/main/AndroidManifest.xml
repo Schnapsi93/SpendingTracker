@@ -8,6 +8,9 @@
     <!-- Reads incoming bank SMS -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
 
+    <!-- Notifications about new bank transactions (asked for on Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- The app also works on devices without a phone/SMS function (e.g. tablets). -->
     <uses-feature
         android:name="android.hardware.telephony"
@@ -27,6 +30,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.SpendingTracker">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
