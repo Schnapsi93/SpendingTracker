@@ -108,10 +108,14 @@ fun HomeScreen(
                 // Extra bottom space so the button never covers the last row.
                 contentPadding = PaddingValues(bottom = 88.dp)
             ) {
-                // Shown only while automatic transactions wait for confirmation.
-                if (state.unreviewedCount > 0) {
+                // Shown while automatic transactions or unreadable messages need attention.
+                if (state.unreviewedCount > 0 || state.unrecognizedCount > 0) {
                     item(key = "review_banner") {
-                        ReviewBanner(count = state.unreviewedCount, onClick = onReviewClick)
+                        ReviewBanner(
+                            unreviewedCount = state.unreviewedCount,
+                            unrecognizedCount = state.unrecognizedCount,
+                            onClick = onReviewClick
+                        )
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
@@ -295,9 +299,24 @@ private fun CategoryTotalRow(
     }
 }
 
-/** Highlighted card telling the user how many automatic transactions await review. */
+/**
+ * Highlighted card telling the user how many automatic transactions
+ * await review and how many bank messages couldn't be read.
+ */
 @Composable
-private fun ReviewBanner(count: Int, onClick: () -> Unit) {
+private fun ReviewBanner(
+    unreviewedCount: Int,
+    unrecognizedCount: Int,
+    onClick: () -> Unit
+) {
+    // Builds e.g. "2 automatic transactions to review · 1 message couldn't be read"
+    val parts = buildList {
+        if (unreviewedCount == 1) add("1 automatic transaction to review")
+        if (unreviewedCount > 1) add("$unreviewedCount automatic transactions to review")
+        if (unrecognizedCount == 1) add("1 message couldn't be read")
+        if (unrecognizedCount > 1) add("$unrecognizedCount messages couldn't be read")
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -313,11 +332,7 @@ private fun ReviewBanner(count: Int, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (count == 1) {
-                    "1 automatic transaction to review"
-                } else {
-                    "$count automatic transactions to review"
-                },
+                text = parts.joinToString(" · "),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.weight(1f)
             )

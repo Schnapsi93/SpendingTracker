@@ -165,7 +165,7 @@ class SettingsViewModel @Inject constructor(
                             " → ${result.categoryName ?: "Uncategorized (no rule matched)"}"
                 }
                 BankMessageResult.Duplicate -> "This transaction was already saved; skipped."
-                BankMessageResult.Unrecognized -> "Not recognized as a DH transaction message."
+                BankMessageResult.Unrecognized -> "Not recognized as a DH transaction. Kept under Review → Unrecognized messages."
                 BankMessageResult.NotFromBank -> "The sender is not a known bank."
             }
             _uiState.update {

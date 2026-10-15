@@ -15,6 +15,7 @@ import java.time.YearMonth
  * @property transactions the month's transactions, newest first
  * @property categoriesById all categories, keyed by id for quick lookup
  * @property unreviewedCount automatic transactions waiting for review, in all months
+ * @property unrecognizedCount bank messages that couldn't be read
  */
 data class HomeUiState(
     val month: YearMonth,
@@ -22,5 +23,6 @@ data class HomeUiState(
     val expenseByCategory: List<CategoryTotal> = emptyList(),
     val transactions: List<Transaction> = emptyList(),
     val categoriesById: Map<Long, Category> = emptyMap(),
-    val unreviewedCount: Int = 0
+    val unreviewedCount: Int = 0,
+    val unrecognizedCount: Int = 0
 )

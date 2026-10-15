@@ -4,9 +4,11 @@ import com.aljaz.spendingtracker.automation.parser.BankMessageParser
 import com.aljaz.spendingtracker.automation.parser.ParsedBankMessage
 import com.aljaz.spendingtracker.domain.model.Transaction
 import com.aljaz.spendingtracker.domain.model.TransactionSource
+import com.aljaz.spendingtracker.domain.model.UnrecognizedMessage
 import com.aljaz.spendingtracker.domain.repository.CategoryRepository
 import com.aljaz.spendingtracker.domain.repository.CategoryRuleRepository
 import com.aljaz.spendingtracker.domain.repository.TransactionRepository
+import com.aljaz.spendingtracker.domain.repository.UnrecognizedMessageRepository
 import com.aljaz.spendingtracker.domain.rules.CategoryRuleMatcher
 import com.aljaz.spendingtracker.domain.rules.RuleText
 import javax.inject.Inject
@@ -16,7 +18,7 @@ sealed interface BankMessageResult {
     /** The sender is not a known bank; the message was ignored. */
     data object NotFromBank : BankMessageResult
 
-    /** From the bank, but not a transaction message the parser understands. */
+    /** From a known bank, but no parser could read it; kept for the user to inspect. */
     data object Unrecognized : BankMessageResult
 
     /** The same transaction was already saved earlier. */
@@ -32,10 +34,11 @@ sealed interface BankMessageResult {
 /**
  * Turns an incoming bank message into a saved transaction:
  * pick the parser for the sender, parse, categorize with the keyword
- * rules, and save, skipping duplicates.
+ * rules, and save, skipping duplicates. Bank messages that can't be
+ * parsed are kept as [UnrecognizedMessage]s.
  *
- * Used by the SMS receiver and by the "Test with a message" field, so
- * both behave exactly the same.
+ * Used by the SMS receiver, the "Test with a message" field and the
+ * "Try again" button, so all of them behave exactly the same.
  */
 class BankMessageProcessor @Inject constructor(
     // Every registered parser (see AutomationModule).
@@ -43,6 +46,7 @@ class BankMessageProcessor @Inject constructor(
     private val ruleRepository: CategoryRuleRepository,
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository,
+    private val unrecognizedRepository: UnrecognizedMessageRepository,
     private val matcher: CategoryRuleMatcher
 ) {
 
@@ -50,17 +54,32 @@ class BankMessageProcessor @Inject constructor(
      * @param sender the SMS sender name or number, as Android reports it
      * @param body the full message text
      * @param source how the message arrived (SMS, or Wallet later)
+     * @param rememberUnrecognized whether to keep the message if it can't be parsed
      */
     suspend fun process(
         sender: String,
         body: String,
-        source: TransactionSource
+        source: TransactionSource,
+        rememberUnrecognized: Boolean = true
     ): BankMessageResult {
-        // Privacy: anything not from a known bank stops here, unread.
+        // Privacy: anything not from a known bank stops here, unread and unstored.
         val parser = parsers.firstOrNull { it.acceptsSender(sender) }
             ?: return BankMessageResult.NotFromBank
 
-        val parsed = parser.parse(body) ?: return BankMessageResult.Unrecognized
+        val parsed = parser.parse(body)
+        if (parsed == null) {
+            if (rememberUnrecognized) {
+                unrecognizedRepository.add(
+                    UnrecognizedMessage(
+                        sender = sender,
+                        body = body,
+                        receivedAt = System.currentTimeMillis(),
+                        source = source
+                    )
+                )
+            }
+            return BankMessageResult.Unrecognized
+        }
 
         val rule = matcher.match(ruleRepository.getAll(), parsed.merchant, parsed.operation)
 
@@ -82,6 +101,24 @@ class BankMessageProcessor @Inject constructor(
 
         val categoryName = rule?.categoryId?.let { categoryRepository.getById(it)?.name }
         return BankMessageResult.Saved(transaction.copy(id = id), categoryName)
+    }
+
+    /**
+     * Runs a stored unrecognized message through the parsers again,
+     * e.g. after a parser learned a new format. If it can now be read
+     * (or was already saved), it is removed from the unrecognized list.
+     */
+    suspend fun retry(message: UnrecognizedMessage): BankMessageResult {
+        val result = process(
+            sender = message.sender,
+            body = message.body,
+            source = message.source,
+            rememberUnrecognized = false // it's already stored
+        )
+        if (result is BankMessageResult.Saved || result == BankMessageResult.Duplicate) {
+            unrecognizedRepository.delete(message.id)
+        }
+        return result
     }
 
     /**

@@ -15,6 +15,8 @@ import com.aljaz.spendingtracker.data.csv.CsvHistoryImporter
 import com.aljaz.spendingtracker.domain.export.HistoryImporter
 import com.aljaz.spendingtracker.data.repository.CategoryRuleRepositoryImpl
 import com.aljaz.spendingtracker.domain.repository.CategoryRuleRepository
+import com.aljaz.spendingtracker.data.repository.UnrecognizedMessageRepositoryImpl
+import com.aljaz.spendingtracker.domain.repository.UnrecognizedMessageRepository
 
 /**
  * Connects repository interfaces to their implementations.
@@ -63,4 +65,12 @@ abstract class RepositoryModule {
     abstract fun bindCategoryRuleRepository(
         impl: CategoryRuleRepositoryImpl
     ): CategoryRuleRepository
+
+
+    /** When code asks for [UnrecognizedMessageRepository], provide the Room version. */
+    @Binds
+    @Singleton
+    abstract fun bindUnrecognizedMessageRepository(
+        impl: UnrecognizedMessageRepositoryImpl
+    ): UnrecognizedMessageRepository
 }

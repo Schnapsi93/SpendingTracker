@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import java.time.YearMonth
 import javax.inject.Inject
+import com.aljaz.spendingtracker.domain.repository.UnrecognizedMessageRepository
 
 /**
  * Logic behind the Home screen: which month is selected, plus the
@@ -26,7 +27,9 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     observeMonthOverview: ObserveMonthOverviewUseCase,
     observeCategories: ObserveCategoriesUseCase,
-    observeUnreviewed: ObserveUnreviewedTransactionsUseCase
+    observeUnreviewed: ObserveUnreviewedTransactionsUseCase,
+    unrecognizedMessages: UnrecognizedMessageRepository
+
 ) : ViewModel() {
 
     private val selectedMonth = MutableStateFlow(YearMonth.now())
@@ -47,15 +50,17 @@ class HomeViewModel @Inject constructor(
             observeMonthOverview(month).map { overview -> month to overview }
         },
         observeCategories(),
-        observeUnreviewed().map { it.size }
-    ) { (month, overview), categories, unreviewedCount ->
+        observeUnreviewed().map { it.size },
+        unrecognizedMessages.observeAll().map { it.size }
+    ) { (month, overview), categories, unreviewedCount, unrecognizedCount ->
         HomeUiState(
             month = month,
             summary = overview.summary,
             expenseByCategory = overview.expenseByCategory,
             transactions = overview.transactions,
             categoriesById = categories.associateBy { it.id },
-            unreviewedCount = unreviewedCount
+            unreviewedCount = unreviewedCount,
+            unrecognizedCount = unrecognizedCount
         )
     }.stateIn(
         scope = viewModelScope,
