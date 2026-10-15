@@ -48,6 +48,7 @@ data class CloudFormState(
  * @property smsTest the bank SMS test field
  * @property notificationsEnabled whether new bank transactions show a notification
  * @property monthStartDay the day of the month periods start on; 1 = calendar months
+ * @property carryOver whether each period starts with the previous balance
  */
 data class SettingsUiState(
     val isExporting: Boolean = false,
@@ -56,7 +57,8 @@ data class SettingsUiState(
     val cloud: CloudFormState = CloudFormState(),
     val smsTest: SmsTestState = SmsTestState(),
     val notificationsEnabled: Boolean = true,
-    val monthStartDay: Int = 1
+    val monthStartDay: Int = 1,
+    val carryOver: Boolean = false
 
 ) {
     /** True while any file operation runs; buttons are disabled meanwhile. */

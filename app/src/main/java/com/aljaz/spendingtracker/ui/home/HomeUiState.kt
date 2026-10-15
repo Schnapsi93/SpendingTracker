@@ -18,6 +18,7 @@ import java.time.YearMonth
  * @property unrecognizedCount bank messages that couldn't be read
  * @property monthStartDay the day periods start on; 1 = calendar months
  * @property currentPeriod the period containing today, for the picker's "Today"
+ * @property carryOver whether the summary includes a carried-over balance
  */
 data class HomeUiState(
     val month: YearMonth,
@@ -28,5 +29,6 @@ data class HomeUiState(
     val unreviewedCount: Int = 0,
     val unrecognizedCount: Int = 0,
     val monthStartDay: Int = 1,
-    val currentPeriod: YearMonth = month
+    val currentPeriod: YearMonth = month,
+    val carryOver: Boolean = false
 )

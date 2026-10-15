@@ -61,10 +61,17 @@ class SettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch { refreshCloudForm() }
         _uiState.update { it.copy(notificationsEnabled = notificationPreferences.isEnabled()) }
-        // Keep the shown start day in sync with the stored one.
+
+        // Keep the shown period settings in sync with the stored ones.
+        // Each collect runs forever, so each needs its own launch.
         viewModelScope.launch {
             periodSettings.monthStartDay.collect { day ->
                 _uiState.update { it.copy(monthStartDay = day) }
+            }
+        }
+        viewModelScope.launch {
+            periodSettings.carryOver.collect { enabled ->
+                _uiState.update { it.copy(carryOver = enabled) }
             }
         }
     }
@@ -165,6 +172,10 @@ class SettingsViewModel @Inject constructor(
 
     /** Saves the day of the month periods start on. Home updates immediately. */
     fun onMonthStartDayChange(day: Int) = periodSettings.setMonthStartDay(day)
+
+
+    /** Turns carry-over on or off. Home updates immediately. */
+    fun onCarryOverToggle(enabled: Boolean) = periodSettings.setCarryOver(enabled)
 
     // ---------- Notifications ----------
 

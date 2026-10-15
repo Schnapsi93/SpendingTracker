@@ -55,4 +55,8 @@ class TransactionRepositoryImpl @Inject constructor(
     override fun observeAll(): Flow<List<Transaction>> =
         dao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
+
+    override fun observeBalanceBefore(before: Long): Flow<Long> =
+        dao.observeBalanceBefore(before)
+
 }

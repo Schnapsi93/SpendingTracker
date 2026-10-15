@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 
 /**
  * Settings screen: CSV export and import, and the Nextcloud backup.
@@ -122,7 +123,9 @@ fun SettingsScreen(
             // ----- Time period -----
             PeriodCard(
                 monthStartDay = state.monthStartDay,
-                onMonthStartDayChange = viewModel::onMonthStartDayChange
+                carryOver = state.carryOver,
+                onMonthStartDayChange = viewModel::onMonthStartDayChange,
+                onCarryOverToggle = viewModel::onCarryOverToggle
             )
 
             // ----- Bank SMS -----
@@ -380,11 +383,13 @@ private fun NotificationsCard(
 }
 
 
-/** Time period card: the day of the month on which periods start. */
+/** Time period card: month start day and carry-over. */
 @Composable
 private fun PeriodCard(
     monthStartDay: Int,
-    onMonthStartDayChange: (Int) -> Unit
+    carryOver: Boolean,
+    onMonthStartDayChange: (Int) -> Unit,
+    onCarryOverToggle: (Boolean) -> Unit
 ) {
     var showPicker by rememberSaveable { mutableStateOf(false) }
 
@@ -405,13 +410,31 @@ private fun PeriodCard(
                     Text(monthStartDay.toString())
                 }
             }
-
             Text(
                 text = if (monthStartDay == 1) {
                     "Periods follow the calendar months."
                 } else {
                     "Each period runs from day $monthStartDay to day ${monthStartDay - 1} " +
                             "of the next month and is named after the month it starts in."
+                },
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            HorizontalDivider()
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Carry over balance",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(checked = carryOver, onCheckedChange = onCarryOverToggle)
+            }
+            Text(
+                text = if (carryOver) {
+                    "Each period starts with what was left (or missing) from all earlier periods."
+                } else {
+                    "Each period stands alone."
                 },
                 style = MaterialTheme.typography.bodySmall
             )

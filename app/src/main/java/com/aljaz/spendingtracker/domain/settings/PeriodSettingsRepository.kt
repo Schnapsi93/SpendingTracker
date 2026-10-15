@@ -10,4 +10,11 @@ interface PeriodSettingsRepository {
 
     /** Saves a new start day; values outside 1–31 are clamped. */
     fun setMonthStartDay(day: Int)
+
+
+    /** Whether each period starts with the previous periods' leftover balance. Updates live. */
+    val carryOver: StateFlow<Boolean>
+
+    /** Turns carry-over on or off. */
+    fun setCarryOver(enabled: Boolean)
 }

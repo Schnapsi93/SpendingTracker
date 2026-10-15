@@ -78,4 +78,15 @@ interface TransactionDao {
     /** Streams every transaction, newest first; updates automatically. */
     @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
     fun observeAll(): Flow<List<TransactionEntity>>
+
+
+    /**
+     * Streams income minus expenses of everything before [before]
+     * (UTC epoch millis), in minor units. Used for the carry-over balance.
+     */
+    @Query(
+        "SELECT COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amountMinor ELSE -amountMinor END), 0) " +
+                "FROM transactions WHERE timestamp < :before"
+    )
+    fun observeBalanceBefore(before: Long): Flow<Long>
 }

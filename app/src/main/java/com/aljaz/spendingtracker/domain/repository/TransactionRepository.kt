@@ -46,4 +46,8 @@ interface TransactionRepository {
 
     /** Every transaction, newest first; updates automatically. */
     fun observeAll(): Flow<List<Transaction>>
+
+
+    /** Income minus expenses of everything before [before] (UTC epoch millis); updates automatically. */
+    fun observeBalanceBefore(before: Long): Flow<Long>
 }

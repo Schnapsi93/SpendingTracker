@@ -129,7 +129,7 @@ fun HomeScreen(
                     }
                 }
                 item(key = "summary") {
-                    SummaryCard(summary = state.summary)
+                    SummaryCard(summary = state.summary, carryOver = state.carryOver)
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
@@ -235,14 +235,20 @@ private fun MonthHeader(
     }
 }
 
-/** Card with income, expenses and balance for the month. */
+/**
+ * Card with the period's totals. With carry-over on, the balance left
+ * from earlier periods is shown first and included in the balance.
+ */
 @Composable
-private fun SummaryCard(summary: MonthSummary) {
+private fun SummaryCard(summary: MonthSummary, carryOver: Boolean) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            if (carryOver) {
+                SummaryLine("Carried over", summary.carriedOverMinor)
+            }
             SummaryLine("Income", summary.totalIncomeMinor)
             SummaryLine("Expenses", summary.totalExpenseMinor)
             HorizontalDivider()

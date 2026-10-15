@@ -3,6 +3,7 @@ package com.aljaz.spendingtracker.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aljaz.spendingtracker.core.periodContaining
+import com.aljaz.spendingtracker.domain.model.MonthOverview
 import com.aljaz.spendingtracker.domain.repository.UnrecognizedMessageRepository
 import com.aljaz.spendingtracker.domain.settings.PeriodSettingsRepository
 import com.aljaz.spendingtracker.domain.usecase.ObserveCategoriesUseCase
@@ -44,34 +45,39 @@ class HomeViewModel @Inject constructor(
      * Combines independent streams into one screen state:
      *
      * 1. The selected period's overview. It is recalculated whenever the
-     *    selected month or the month start day changes; flatMapLatest drops
-     *    the previous calculation.
+     *    selected month, the month start day or the carry-over setting
+     *    changes; flatMapLatest drops the previous calculation.
      * 2. All categories, so each row can show its category's name and color.
      * 3. The number of automatic transactions waiting for review.
      * 4. The number of unreadable bank messages.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<HomeUiState> = combine(
-        combine(selectedMonth, periodSettings.monthStartDay) { month, startDay -> month to startDay }
-            .flatMapLatest { (month, startDay) ->
-                observeMonthOverview(month, startDay).map { overview ->
-                    Triple(month, startDay, overview)
+        combine(
+            selectedMonth,
+            periodSettings.monthStartDay,
+            periodSettings.carryOver
+        ) { month, startDay, carryOver -> Triple(month, startDay, carryOver) }
+            .flatMapLatest { (month, startDay, carryOver) ->
+                observeMonthOverview(month, startDay, carryOver).map { overview ->
+                    PeriodView(month, startDay, carryOver, overview)
                 }
             },
         observeCategories(),
         observeUnreviewed().map { it.size },
         unrecognizedMessages.observeAll().map { it.size }
-    ) { (month, startDay, overview), categories, unreviewedCount, unrecognizedCount ->
+    ) { view, categories, unreviewedCount, unrecognizedCount ->
         HomeUiState(
-            month = month,
-            summary = overview.summary,
-            expenseByCategory = overview.expenseByCategory,
-            transactions = overview.transactions,
+            month = view.month,
+            summary = view.overview.summary,
+            expenseByCategory = view.overview.expenseByCategory,
+            transactions = view.overview.transactions,
             categoriesById = categories.associateBy { it.id },
             unreviewedCount = unreviewedCount,
             unrecognizedCount = unrecognizedCount,
-            monthStartDay = startDay,
-            currentPeriod = periodContaining(LocalDate.now(), startDay)
+            monthStartDay = view.startDay,
+            currentPeriod = periodContaining(LocalDate.now(), view.startDay),
+            carryOver = view.carryOver
         )
     }.stateIn(
         scope = viewModelScope,
@@ -90,3 +96,11 @@ class HomeViewModel @Inject constructor(
         selectedMonth.value = month
     }
 }
+
+/** One calculated period together with the settings it was calculated with. */
+private data class PeriodView(
+    val month: YearMonth,
+    val startDay: Int,
+    val carryOver: Boolean,
+    val overview: MonthOverview
+)

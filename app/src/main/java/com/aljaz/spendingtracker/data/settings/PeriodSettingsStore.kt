@@ -31,8 +31,19 @@ class PeriodSettingsStore @Inject constructor(
         _monthStartDay.value = value // everyone observing updates right away
     }
 
+
+    private val _carryOver = MutableStateFlow(prefs.getBoolean(KEY_CARRY_OVER, false))
+    override val carryOver: StateFlow<Boolean> = _carryOver.asStateFlow()
+
+    override fun setCarryOver(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_CARRY_OVER, enabled).apply()
+        _carryOver.value = enabled
+    }
+
     private companion object {
         const val PREFS_NAME = "period_settings"
         const val KEY_MONTH_START_DAY = "month_start_day"
+
+        const val KEY_CARRY_OVER = "carry_over"
     }
 }

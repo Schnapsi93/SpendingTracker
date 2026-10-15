@@ -1,18 +1,22 @@
 package com.aljaz.spendingtracker.domain.model
 
 /**
- * Totals for one month.
+ * Totals for one period.
  *
  * For now all amounts are assumed to be in a single currency.
  * Multi-currency support would change how these are calculated.
+ *
+ * @property carriedOverMinor balance left over from all earlier periods;
+ *           0 when carry-over is off. May be negative.
  */
 data class MonthSummary(
     val totalIncomeMinor: Long = 0,
-    val totalExpenseMinor: Long = 0
+    val totalExpenseMinor: Long = 0,
+    val carriedOverMinor: Long = 0
 ) {
-    /** Income minus expenses. Negative when you spent more than you earned. */
+    /** Carried-over amount plus income minus expenses. Negative when more was spent. */
     val balanceMinor: Long
-        get() = totalIncomeMinor - totalExpenseMinor
+        get() = carriedOverMinor + totalIncomeMinor - totalExpenseMinor
 }
 
 /**
