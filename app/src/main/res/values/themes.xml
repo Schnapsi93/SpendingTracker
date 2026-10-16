@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.SpendingTracker" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Light mode: the window shows white until the app has drawn its first frame. -->
+    <style name="Theme.SpendingTracker" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
 </resources>
