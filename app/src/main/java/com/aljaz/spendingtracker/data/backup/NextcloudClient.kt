@@ -70,10 +70,20 @@ class NextcloudClient @Inject constructor() : CloudStorage {
         }
     }
 
-    /** Creates the backup folder if needed. 201 = created, 405 = already exists. */
+    /**
+     * Creates the backup folder level by level ("myapps", then
+     * "myapps/spender", then "myapps/spender/backups"), because WebDAV's
+     * MKCOL cannot create several levels at once.
+     * 201 = created, 405 = already exists: both count as success.
+     */
     private fun ensureFolder(credentials: CloudCredentials): AppResult<Unit> {
-        val code = execute(newRequest(credentials, folderUrl(credentials)).method("MKCOL", null))
-        return if (code == 201 || code == 405) AppResult.Success(Unit) else AppResult.Error(explain(code))
+        val segments = folderSegments(credentials)
+        for (depth in 1..segments.size) {
+            val levelUrl = urlFor(credentials, segments.take(depth))
+            val code = execute(newRequest(credentials, levelUrl).method("MKCOL", null))
+            if (code != 201 && code != 405) return AppResult.Error(explain(code))
+        }
+        return AppResult.Success(Unit)
     }
 
     /** Sends a request and returns only the HTTP status code. */
@@ -96,10 +106,18 @@ class NextcloudClient @Inject constructor() : CloudStorage {
             .addPathSegment(credentials.username) // encodes spaces and special characters
             .build()
 
-    /** e.g. .../files/aljaz/SpendingTracker/ */
+    /** e.g. .../files/aljaz/myapps/spender/backups/ */
     private fun folderUrl(credentials: CloudCredentials): HttpUrl =
+        urlFor(credentials, folderSegments(credentials))
+
+    /** Splits "myapps/spender/backups" into ["myapps", "spender", "backups"], skipping empty parts. */
+    private fun folderSegments(credentials: CloudCredentials): List<String> =
+        credentials.folder.split('/').map { it.trim() }.filter { it.isNotEmpty() }
+
+    /** The user's root URL plus [segments]; each segment is encoded separately (spaces etc.). */
+    private fun urlFor(credentials: CloudCredentials, segments: List<String>): HttpUrl =
         userRootUrl(credentials).newBuilder()
-            .addPathSegments(credentials.folder.trim('/'))
+            .apply { segments.forEach { addPathSegment(it) } }
             .build()
 
     /** Runs a network action and turns typical failures into readable messages. */

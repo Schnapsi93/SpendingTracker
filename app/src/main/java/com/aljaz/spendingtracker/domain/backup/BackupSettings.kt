@@ -17,7 +17,7 @@ data class BackupSettings(
     val hasPassword: Boolean = false
 ) {
     companion object {
-        const val DEFAULT_FOLDER = "SpendingTracker"
+        const val DEFAULT_FOLDER = "myapps/spender/backups"
     }
 }
 
