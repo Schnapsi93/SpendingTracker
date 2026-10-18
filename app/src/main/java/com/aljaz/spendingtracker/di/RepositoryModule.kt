@@ -19,6 +19,8 @@ import com.aljaz.spendingtracker.data.repository.UnrecognizedMessageRepositoryIm
 import com.aljaz.spendingtracker.domain.repository.UnrecognizedMessageRepository
 import com.aljaz.spendingtracker.data.settings.PeriodSettingsStore
 import com.aljaz.spendingtracker.domain.settings.PeriodSettingsRepository
+import com.aljaz.spendingtracker.data.repository.RecurringTransactionRepositoryImpl
+import com.aljaz.spendingtracker.domain.repository.RecurringTransactionRepository
 
 /**
  * Connects repository interfaces to their implementations.
@@ -83,4 +85,12 @@ abstract class RepositoryModule {
     abstract fun bindPeriodSettingsRepository(
         impl: PeriodSettingsStore
     ): PeriodSettingsRepository
+
+
+    /** When code asks for [RecurringTransactionRepository], provide the Room version. */
+    @Binds
+    @Singleton
+    abstract fun bindRecurringTransactionRepository(
+        impl: RecurringTransactionRepositoryImpl
+    ): RecurringTransactionRepository
 }

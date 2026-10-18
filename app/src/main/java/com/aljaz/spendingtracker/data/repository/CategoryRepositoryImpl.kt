@@ -12,13 +12,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import com.aljaz.spendingtracker.data.local.dao.CategoryRuleDao
+import com.aljaz.spendingtracker.data.local.dao.RecurringTransactionDao
 
 /** Room-backed implementation of [CategoryRepository]. */
 class CategoryRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val categoryDao: CategoryDao,
     private val transactionDao: TransactionDao,
-    private val ruleDao: CategoryRuleDao
+    private val ruleDao: CategoryRuleDao,
+    private val recurringDao: RecurringTransactionDao
 ) : CategoryRepository {
 
     override suspend fun add(category: Category): Long? {
@@ -37,6 +39,7 @@ class CategoryRepositoryImpl @Inject constructor(
         // none do, so nothing is ever left pointing at a missing category.
         database.withTransaction {
             transactionDao.clearCategory(category.id)
+            recurringDao.clearCategory(category.id) // repeats continue, uncategorized
             ruleDao.deleteForCategory(category.id)
             categoryDao.delete(category.toEntity())
         }
