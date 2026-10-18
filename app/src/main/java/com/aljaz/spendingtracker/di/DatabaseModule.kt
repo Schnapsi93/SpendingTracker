@@ -13,6 +13,7 @@ import javax.inject.Singleton
 import com.aljaz.spendingtracker.data.local.dao.CategoryDao
 import com.aljaz.spendingtracker.data.local.dao.CategoryRuleDao
 import com.aljaz.spendingtracker.data.local.dao.UnrecognizedMessageDao
+import com.aljaz.spendingtracker.data.local.dao.RecurringTransactionDao
 
 /**
  * Tells Hilt how to build the database and its DAOs.
@@ -55,4 +56,10 @@ object DatabaseModule {
     @Provides
     fun provideUnrecognizedMessageDao(database: AppDatabase): UnrecognizedMessageDao =
         database.unrecognizedMessageDao()
+
+
+    /** Exposes the recurring transaction DAO so it can be injected directly. */
+    @Provides
+    fun provideRecurringTransactionDao(database: AppDatabase): RecurringTransactionDao =
+        database.recurringTransactionDao()
 }

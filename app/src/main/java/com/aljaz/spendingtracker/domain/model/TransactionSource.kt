@@ -8,5 +8,6 @@ enum class TransactionSource {
     MANUAL,   // typed in by the user
     SMS,      // parsed from a bank SMS
     WALLET,   // parsed from a Google Wallet notification
-    IMPORT    // loaded from a CSV file
+    IMPORT,    // loaded from a CSV file
+    RECURRING // created automatically by a repeating transaction
 }
