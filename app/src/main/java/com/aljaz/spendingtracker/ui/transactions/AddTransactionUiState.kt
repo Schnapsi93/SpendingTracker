@@ -3,6 +3,7 @@ package com.aljaz.spendingtracker.ui.transactions
 import com.aljaz.spendingtracker.domain.model.Category
 import com.aljaz.spendingtracker.domain.model.TransactionSource
 import com.aljaz.spendingtracker.domain.model.TransactionType
+import com.aljaz.spendingtracker.domain.model.RepeatFrequency
 
 /**
  * The "Apply to all future transactions" dialog.
@@ -30,6 +31,8 @@ data class RuleDialogState(
  * @property isSaving true while a save or delete is running
  * @property showDeleteConfirm true while the "Delete?" dialog is open
  * @property ruleDialog the open "Apply to future" dialog, or null
+ * @property repeats true when the "Repeating transaction" box is ticked
+ * @property frequency how often it repeats; only used when [repeats] is true
  * @property isFinished becomes true after a successful save or delete,
  *           telling the screen to close itself
  */
@@ -47,11 +50,20 @@ data class AddTransactionUiState(
     val isSaving: Boolean = false,
     val showDeleteConfirm: Boolean = false,
     val ruleDialog: RuleDialogState? = null,
+    val repeats: Boolean = false,
+    val frequency: RepeatFrequency = RepeatFrequency.DEFAULT,
     val isFinished: Boolean = false
 ) {
     /** Only the categories that fit the currently chosen type. */
     val categoriesForType: List<Category>
         get() = categories.filter { it.type == type }
+
+    /**
+     * Repeating is offered only when adding a new transaction by hand.
+     * Existing series are managed on the Recurring screen.
+     */
+    val canRepeat: Boolean
+        get() = !isEditing
 
     /** Name of the selected category, or null if none is selected. */
     val selectedCategoryName: String?

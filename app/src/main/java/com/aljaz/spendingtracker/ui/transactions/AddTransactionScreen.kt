@@ -36,6 +36,11 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import com.aljaz.spendingtracker.domain.model.RepeatFrequency
 
 /**
  * Form for adding a new transaction or editing an existing one.
@@ -128,6 +133,17 @@ fun AddTransactionScreen(
                     Text(dateTime.format(DateTimeFormatter.ofPattern("HH:mm")))
                 }
             }
+
+            // "Repeating transaction" tick box; frequency chips appear once ticked.
+            if (state.canRepeat) {
+                RepeatSection(
+                    repeats = state.repeats,
+                    frequency = state.frequency,
+                    onRepeatChange = viewModel::onRepeatChange,
+                    onFrequencyChange = viewModel::onFrequencyChange
+                )
+            }
+
             Text(text = "Category", style = MaterialTheme.typography.titleSmall)
             CategorySelector(
                 categories = state.categoriesForType,
@@ -239,6 +255,60 @@ fun AddTransactionScreen(
                     onDismiss = { showTimePicker = false }
                 )
             }
+        }
+    }
+}
+
+
+/**
+ * Tick box for a repeating transaction and, when ticked, the choice of
+ * how often it repeats.
+ *
+ * The whole row is clickable, not just the small box, which is easier to hit.
+ */
+@Composable
+private fun RepeatSection(
+    repeats: Boolean,
+    frequency: RepeatFrequency,
+    onRepeatChange: (Boolean) -> Unit,
+    onFrequencyChange: (RepeatFrequency) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = repeats,
+                    onValueChange = onRepeatChange,
+                    role = Role.Checkbox
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // onCheckedChange is null: the row above handles the click.
+            Checkbox(checked = repeats, onCheckedChange = null)
+            Text(
+                text = "Repeating transaction",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(start = 12.dp)
+            )
+        }
+
+        if (repeats) {
+            Text(text = "Repeats", style = MaterialTheme.typography.titleSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                RepeatFrequency.entries.forEach { option ->
+                    FilterChip(
+                        selected = frequency == option,
+                        onClick = { onFrequencyChange(option) },
+                        label = { Text(option.label) }
+                    )
+                }
+            }
+            Text(
+                text = "The date above is the first time. The next ones are added " +
+                        "automatically; stop them in Settings → Recurring transactions.",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }

@@ -25,6 +25,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import com.aljaz.spendingtracker.domain.model.RepeatFrequency
+import com.aljaz.spendingtracker.domain.usecase.AddRecurringTransactionUseCase
 
 /**
  * Logic behind the add/edit transaction form.
@@ -41,7 +43,8 @@ class AddTransactionViewModel @Inject constructor(
     private val updateTransaction: UpdateTransactionUseCase,
     private val deleteTransaction: DeleteTransactionUseCase,
     private val observeCategories: ObserveCategoriesUseCase,
-    private val createRuleFromTransaction: CreateRuleFromTransactionUseCase // NEW
+    private val createRuleFromTransaction: CreateRuleFromTransactionUseCase,
+    private val addRecurringTransaction: AddRecurringTransactionUseCase
 ) : ViewModel() {
 
     /** Id from the navigation route, or null in add mode. */
@@ -128,6 +131,15 @@ class AddTransactionViewModel @Inject constructor(
         _uiState.update { it.copy(note = text) }
 
 
+    /** Ticks or unticks "Repeating transaction". */
+    fun onRepeatChange(repeats: Boolean) =
+        _uiState.update { it.copy(repeats = repeats) }
+
+    /** Chooses how often the transaction repeats. */
+    fun onFrequencyChange(frequency: RepeatFrequency) =
+        _uiState.update { it.copy(frequency = frequency) }
+
+
     /** Changes the date and keeps the time of day. */
     fun onDateSelected(date: LocalDate) = _uiState.update { state ->
         val zone = ZoneId.systemDefault()
@@ -164,17 +176,21 @@ class AddTransactionViewModel @Inject constructor(
             val existing = original
 
             val result: AppResult<Any> = if (existing == null) {
-                addTransaction(
-                    Transaction(
-                        type = state.type,
-                        amountMinor = amountMinor,
-                        currency = DEFAULT_CURRENCY,
-                        categoryId = state.selectedCategoryId,
-                        title = state.title,
-                        note = state.note,
-                        timestamp = state.timestamp
-                    )
+                val newTransaction = Transaction(
+                    type = state.type,
+                    amountMinor = amountMinor,
+                    currency = DEFAULT_CURRENCY,
+                    categoryId = state.selectedCategoryId,
+                    title = state.title,
+                    note = state.note,
+                    timestamp = state.timestamp
                 )
+                // A ticked box also sets up the following occurrences.
+                if (state.repeats && state.canRepeat) {
+                    addRecurringTransaction(newTransaction, state.frequency)
+                } else {
+                    addTransaction(newTransaction)
+                }
             } else {
                 updateTransaction(
                     existing.copy(
