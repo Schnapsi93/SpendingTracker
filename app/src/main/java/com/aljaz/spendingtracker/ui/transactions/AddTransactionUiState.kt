@@ -1,9 +1,9 @@
 package com.aljaz.spendingtracker.ui.transactions
 
 import com.aljaz.spendingtracker.domain.model.Category
+import com.aljaz.spendingtracker.domain.model.RepeatFrequency
 import com.aljaz.spendingtracker.domain.model.TransactionSource
 import com.aljaz.spendingtracker.domain.model.TransactionType
-import com.aljaz.spendingtracker.domain.model.RepeatFrequency
 
 /**
  * The "Apply to all future transactions" dialog.
@@ -59,8 +59,6 @@ data class AddTransactionUiState(
     val categoriesForType: List<Category>
         get() = categories.filter { it.type == type }
 
-
-
     /** Name of the selected category, or null if none is selected. */
     val selectedCategoryName: String?
         get() = categories.find { it.id == selectedCategoryId }?.name
@@ -70,7 +68,5 @@ data class AddTransactionUiState(
      * name from the bank) and need a category to point to.
      */
     val canCreateRule: Boolean
-        get() = isEditing &&
-                (source == TransactionSource.SMS || source == TransactionSource.WALLET) &&
-                selectedCategoryId != null
+        get() = isEditing && source.isAutomatic && selectedCategoryId != null
 }

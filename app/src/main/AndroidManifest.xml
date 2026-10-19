@@ -48,10 +48,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- Reads other apps' notifications; only whitelisted bank apps are processed. -->
         <service
             android:name=".automation.externalnotifications.ExternalNotificationListener"
             android:exported="true"
-            android:label="Spending Tracker – bank notifications"
+            android:label="Spending Tracker – transaction notifications"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />

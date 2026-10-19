@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -157,9 +156,7 @@ fun SettingsScreen(
 
 
             // ----- External notifications -----
-            ExternalNotificationAccessRow(
-
-            )
+            ExternalNotificationAccessRow()
 
 
             // ----- Help -----
@@ -468,7 +465,6 @@ private fun PeriodCard(
     }
 }
 
-
 /**
  * Settings row showing whether the app may read other apps' notifications
  * (needed for bank app / Wallet auto-capture), with a button that opens
@@ -494,13 +490,6 @@ private fun ExternalNotificationAccessRow(modifier: Modifier = Modifier) {
     LifecycleResumeEffect(Unit) {
         granted = ExternalNotificationAccess.isGranted(context)
         onPauseOrDispose { }   // required cleanup block, nothing to clean up here
-    }
-
-    OutlinedButton(onClick = {
-        Log.d("NotifCapture", "Grant clicked")
-        ExternalNotificationAccess.openSettings(context)
-    }) {
-        Text(if (granted) "Manage" else "Grant")
     }
 
     Row(
