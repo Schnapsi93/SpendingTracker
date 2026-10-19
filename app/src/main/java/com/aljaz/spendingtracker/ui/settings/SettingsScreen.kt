@@ -44,6 +44,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.aljaz.spendingtracker.automation.externalnotifications.ExternalNotificationAccess
 import com.aljaz.spendingtracker.ui.components.DayPickerDialog
+import com.aljaz.spendingtracker.ui.components.rememberNotificationAccess
 
 /**
  * Settings screen: CSV export and import, and the Nextcloud backup.
@@ -137,7 +138,10 @@ fun SettingsScreen(
                 onProcessTest = viewModel::onProcessSmsTestClick
             )
 
-            // ----- Notifications -----
+            // ----- External notifications (NLB Pay) -----
+            BankAppsCard()
+
+            // ----- Notifications for new transactions -----
             NotificationsCard(
                 enabled = state.notificationsEnabled,
                 onToggle = viewModel::onNotificationsToggle
@@ -155,8 +159,7 @@ fun SettingsScreen(
             )
 
 
-            // ----- External notifications -----
-            ExternalNotificationAccessRow()
+
 
 
             // ----- Help -----
@@ -466,56 +469,55 @@ private fun PeriodCard(
 }
 
 /**
- * Settings row showing whether the app may read other apps' notifications
- * (needed for bank app / Wallet auto-capture), with a button that opens
- * the system "Notification access" screen.
- *
- * The status is re-checked every time the screen resumes, so it updates
- * right after the user returns from system settings.
- */
-@Composable
-private fun ExternalNotificationAccessRow(modifier: Modifier = Modifier) {
+* Banking apps card: notification access status and a shortcut to grant it.
+* Needed for banks that report card payments through their app instead of
+* SMS (currently NLB Pay). Same layout as [BankSmsCard].
+*/
 
-    // Context is needed to query the system and to start the settings screen.
+@Composable
+private fun BankAppsCard() {
     val context = LocalContext.current
 
-    // Current access state. `remember` keeps it across recompositions;
-    // `mutableStateOf` makes the UI redraw when it changes.
-    var granted by remember {
-        mutableStateOf(ExternalNotificationAccess.isGranted(context))
-    }
+    // Granted state, re-checked after returning from system settings.
+    val access = rememberNotificationAccess()
 
-    // Runs when the screen becomes visible again (e.g. back from settings).
-    // `remember` alone would only check once, so the status would go stale.
-    LifecycleResumeEffect(Unit) {
-        granted = ExternalNotificationAccess.isGranted(context)
-        onPauseOrDispose { }   // required cleanup block, nothing to clean up here
-    }
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Left side: title + status. weight(1f) takes all free space,
-        // which pushes the button to the right edge.
-        Column(modifier = Modifier.weight(1f)) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(text = "Banking apps", style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "Read app notifications",
-                style = MaterialTheme.typography.bodyLarge
+                text = "Card transactions from supported banking apps (NLB Pay) are added " +
+                        "automatically from their notifications. Notifications from other " +
+                        "apps are ignored and never stored.",
+                style = MaterialTheme.typography.bodyMedium
             )
-            Text(
-                text = if (granted) "Access granted" else "Access not granted",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (granted) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.error
-            )
-        }
 
-        // Right side: opens system settings. The label changes with the state.
-        OutlinedButton(onClick = { ExternalNotificationAccess.openSettings(context) }) {
-            Text(if (granted) "Manage" else "Grant")
+            if (access.granted) {
+                Text(text = "Status: allowed ✓", style = MaterialTheme.typography.bodyMedium)
+                // Lets the user turn access off again.
+                TextButton(onClick = access.request) { Text("Manage notification access") }
+            } else {
+                Text(text = "Status: not allowed", style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = access.request) {
+                        Text("Allow notification access")
+                    }
+                    // If the switch is greyed out ("restricted setting"), it has to be
+                    // unlocked first in the app's settings: ⋮ → Allow restricted settings.
+                    TextButton(onClick = {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.fromParts("package", context.packageName, null)
+                            )
+                        )
+                    }) {
+                        Text("App settings")
+                    }
+                }
+            }
         }
     }
 }

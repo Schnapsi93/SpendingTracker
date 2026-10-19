@@ -35,10 +35,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.aljaz.spendingtracker.automation.parser.DhSmsParser
 import com.aljaz.spendingtracker.ui.components.DayPickerDialog
 import com.aljaz.spendingtracker.ui.components.openAppSettings
+import com.aljaz.spendingtracker.ui.components.rememberNotificationAccess
 import com.aljaz.spendingtracker.ui.components.rememberPermissionRequest
 
 /** The pages of the guide, in order. */
-private enum class OnboardingPage { WELCOME, SMS, NOTIFICATIONS, PERIOD, BACKUP }
+private enum class OnboardingPage { WELCOME, SMS, BANK_APPS, NOTIFICATIONS, PERIOD, BACKUP }
 
 /**
  * First-launch setup guide: one topic per page, every page optional.
@@ -115,6 +116,7 @@ fun OnboardingScreen(
             when (page) {
                 OnboardingPage.WELCOME -> WelcomePage()
                 OnboardingPage.SMS -> SmsPage()
+                OnboardingPage.BANK_APPS -> BankAppsPage()
                 OnboardingPage.NOTIFICATIONS -> NotificationsPage()
                 OnboardingPage.PERIOD -> PeriodPage(
                     monthStartDay = monthStartDay,
@@ -137,8 +139,8 @@ private fun WelcomePage() {
     PageTitle("Welcome to Spending Tracker")
     PageText(
         "Track your income and expenses month by month. Card payments from your " +
-                "bank's SMS are added and categorized automatically, and your history " +
-                "can be backed up to your own Nextcloud."
+                "bank's SMS or banking app are added and categorized automatically, and " +
+                "your history can be backed up to your own Nextcloud."
     )
     PageText("This short guide sets up the essentials. Every step is optional and can be changed later in Settings.")
 }
@@ -161,6 +163,35 @@ private fun SmsPage() {
         PageText(
             "If no dialog appears, allow SMS in the app's settings. On some phones " +
                     "you first need ⋮ → Allow restricted settings there.",
+            small = true
+        )
+        TextButton(onClick = { context.openAppSettings() }) { Text("Open app settings") }
+    }
+}
+
+/**
+ * Notification access for banks that report card payments through their
+ * app instead of SMS (currently NLB Pay). Same layout as [SmsPage].
+ */
+@Composable
+private fun BankAppsPage() {
+    val access = rememberNotificationAccess()
+    val context = LocalContext.current
+
+    PageTitle("Banking apps")
+    PageText(
+        "Some banks report card payments as a notification from their app instead " +
+                "of an SMS (currently supported: NLB Pay). With notification access, " +
+                "these are added automatically, just like bank SMS. Notifications from " +
+                "all other apps are ignored and never stored."
+    )
+    if (access.granted) {
+        StatusText("Notification access is allowed ✓")
+    } else {
+        Button(onClick = access.request) { Text("Allow notification access") }
+        PageText(
+            "Find Spending Tracker in the list and switch it on. If the switch is " +
+                    "greyed out, first choose ⋮ → Allow restricted settings in the app's settings.",
             small = true
         )
         TextButton(onClick = { context.openAppSettings() }) { Text("Open app settings") }

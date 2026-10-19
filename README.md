@@ -1,6 +1,6 @@
 # Spending Tracker
 
-A personal Android app for tracking income and expenses period by period, with automatic capture of card transactions from bank SMS messages, keyword-based categorization, charts, CSV export/import and monthly backups to a self-hosted Nextcloud.
+A personal Android app for tracking income and expenses period by period, with automatic capture of card transactions from bank SMS messages and banking app notifications, keyword-based categorization, charts, CSV export/import and monthly backups to a self-hosted Nextcloud.
 
 Built with Kotlin and Jetpack Compose on a layered, test-covered architecture designed to grow feature by feature.
 
@@ -18,7 +18,7 @@ Built with Kotlin and Jetpack Compose on a layered, test-covered architecture de
   - [Money and time](#money-and-time)
   - [Periods and carry-over](#periods-and-carry-over)
   - [Database and migrations](#database-and-migrations)
-  - [Bank SMS automation](#bank-sms-automation)
+  - [Bank message automation](#bank-message-automation)
   - [Keyword rules](#keyword-rules)
   - [Charts](#charts)
   - [CSV format](#csv-format)
@@ -54,8 +54,9 @@ Built with Kotlin and Jetpack Compose on a layered, test-covered architecture de
 
 ### Automation
 - Reads card transaction SMS from **DH d.d.** and saves them automatically
-- Messages from any other sender are ignored and never stored
-- Duplicate protection for messages delivered more than once
+- Reads card transaction notifications from the **NLB Pay** app and saves them automatically
+- SMS from any other sender and notifications from any other app are ignored and never stored
+- Duplicate protection for messages delivered or notifications posted more than once
 - **Review queue**: automatic transactions are marked *NEW* until confirmed; a Home banner leads to the Review screen with per-item and "Confirm all" confirmation
 - Bank messages that can't be read are kept as **unrecognized messages** (copy, try again after a parser update, or delete)
 - **"Apply to all future transactions"**: correcting an automatic transaction's category can create a keyword rule from its merchant name
@@ -70,7 +71,7 @@ Built with Kotlin and Jetpack Compose on a layered, test-covered architecture de
 - Monthly automatic backup to Nextcloud over WebDAV, plus a "Back up now" button
 
 ### Setup
-- **First-launch setup guide** for SMS, notifications, period settings and backup; can be reopened from Settings
+- **First-launch setup guide** for SMS, banking app notifications, notifications, period settings and backup; can be reopened from Settings
 
 ---
 
@@ -102,7 +103,7 @@ The code is split into layers with a strict dependency direction. The **domain**
 ```mermaid
 flowchart LR
     UI["ui<br/>Compose screens<br/>ViewModels"] --> Domain
-    Automation["automation<br/>SMS receiver, parsers,<br/>notifications"] --> Domain
+    Automation["automation<br/>SMS receiver, notification listener,<br/>parsers, notifications"] --> Domain
     Data["data<br/>Room, CSV, settings,<br/>Nextcloud, Keystore"] --> Domain
     Domain["domain<br/>models, use cases,<br/>repository interfaces,<br/>rules, charts"]
     DI["di<br/>Hilt modules"] -.wires.-> Data
@@ -136,7 +137,7 @@ com.aljaz.spendingtracker
 ├── MainActivity.kt              # Single activity: setup guide on first launch, notification deep link
 ├── core/                        # AppResult, MoneyParser, MoneyFormatter, period ranges
 ├── domain/
-│   ├── model/                   # Transaction, Category, CategoryRule, MonthOverview, TransactionFilter, ...
+│   ├── model/                   # Transaction, TransactionSource, Category, CategoryRule, RecurringTransaction, ...
 │   ├── repository/              # Repository interfaces
 │   ├── usecase/                 # One class per business action
 │   ├── rules/                   # Keyword matching, text normalization, starter rules
@@ -153,9 +154,10 @@ com.aljaz.spendingtracker
 │   └── backup/                  # Nextcloud client, Keystore cipher, settings store, worker, scheduler
 ├── automation/
 │   ├── BankMessageProcessor.kt  # Parse → categorize → deduplicate → save (or keep as unrecognized) → notify
-│   ├── parser/                  # BankMessageParser interface, DhSmsParser
+│   ├── parser/                  # BankMessageParser interface, shared BankMessageFields, DhSmsParser, NlbPayParser
 │   ├── sms/                     # SmsReceiver
-│   └── notifications/           # TransactionNotifier, Android implementation, preferences
+│   ├── externalnotifications/   # ExternalNotificationListener, notification-access helper
+│   └── notifications/           # TransactionNotifier (notifications this app posts), preferences
 ├── di/                          # Hilt modules
 └── ui/
     ├── navigation/              # Routes and NavHost
@@ -167,13 +169,15 @@ com.aljaz.spendingtracker
     ├── review/                  # Review queue and unrecognized messages
     ├── search/                  # Search and filter
     ├── charts/                  # Pie chart and cash flow chart
-    ├── settings/                # Export, import, period, bank SMS, notifications, Nextcloud backup
+    ├── settings/                # Export, import, period, bank SMS, banking apps, notifications, Nextcloud backup
     ├── onboarding/              # First-launch setup guide
     └── theme/
 
 app/schemas/                     # Exported Room schemas (one JSON per database version)
 app/src/test/                    # Local unit tests
 ```
+
+> `automation/notifications` is about notifications the app **shows**; `automation/externalnotifications` is about notifications from **other apps** that the app **reads**.
 
 ---
 
@@ -193,14 +197,15 @@ No API keys or local configuration files are required. Nextcloud settings are en
 
 ### First launch
 The setup guide walks through:
-1. **Bank SMS** permission, for automatic transactions
-2. **Notifications** permission (Android 13+)
-3. **Month start day** and **carry-over**
-4. **Nextcloud backup** (server address, username and an **app password**)
+1. **Bank SMS** permission, for automatic transactions from SMS
+2. **Banking apps**: notification access, for automatic transactions from banking app notifications (NLB Pay)
+3. **Notifications** permission (Android 13+)
+4. **Month start day** and **carry-over**
+5. **Nextcloud backup** (server address, username and an **app password**)
 
 Every step is optional and can be changed later in **Settings**. The guide can be reopened with **Settings → Show setup guide**.
 
-> If the app is installed from an APK file instead of Android Studio, newer Android versions may block the SMS permission. Open the app's system settings, choose **⋮ → Allow restricted settings**, then grant the permission.
+> If the app is installed from an APK file instead of Android Studio, newer Android versions may block the SMS permission and notification access. Open the app's system settings, choose **⋮ → Allow restricted settings**, then grant them.
 
 ---
 
@@ -210,10 +215,10 @@ All tests are local JVM unit tests and run in seconds without an emulator.
 
 - **Android Studio:** right-click `app/src/test` → **Run Tests**
 - **Command line:**
-  ```bash
+```bash
   ./gradlew test          # macOS / Linux
   gradlew test            # Windows
-  ```
+```
 - **HTML report:** `app/build/reports/tests/testDebugUnitTest/index.html`
 
 | Test class | Covers |
@@ -225,6 +230,7 @@ All tests are local JVM unit tests and run in seconds without an emulator.
 | `BackupFileTest` | Splitting a backup file into its sections |
 | `ScheduledBackupTest` | Monthly backup decision, empty-history guard |
 | `DhSmsParserTest` | All supported DH SMS formats, sender matching |
+| `NlbPayParserTest` | NLB Pay notification format, line breaks, thousands separator, package matching |
 | `CategoryRuleMatcherTest` | Keyword matching, priorities, whole-word behavior |
 | `CreateRuleFromTransactionTest` | Rules created from corrected transactions, typo guard |
 | `SaveRuleUseCaseTest` | Saving and editing rules by hand |
@@ -263,6 +269,10 @@ Room database `spending_tracker.db`, with the schema of every version exported t
 | 2 | `categories` table | Auto-migration |
 | 3 | `category_rules` table | Auto-migration |
 | 4 | `unrecognized_messages` table | Auto-migration |
+| 5 | `recurring_transactions` table | Auto-migration |
+| 6 | `transactions.recurringId` column | Manual (`MIGRATION_5_6`) |
+
+Enums such as `TransactionSource` are stored **by name**, so adding a new value (e.g. `NOTIFICATION`) needs no migration, but renaming one does.
 
 Small settings (period settings, notification switch, setup-guide flag, backup settings) live in private `SharedPreferences`; the Nextcloud app password is stored only in encrypted form.
 
@@ -274,24 +284,37 @@ Small settings (period settings, notification switch, setup-guide flag, backup s
 
 > Never edit or delete the files in `app/schemas/`. Auto-migrations are generated from them.
 
-### Bank SMS automation
+### Bank message automation
+
+Bank transactions arrive through two channels that share one pipeline:
+
+| Channel | Entry point | "Sender" | Source saved |
+|---|---|---|---|
+| SMS | `SmsReceiver` | SMS sender name, e.g. `DH d.d.` | `SMS` |
+| App notification | `ExternalNotificationListener` | App package, e.g. `si.nlbpay.slovenija` | `NOTIFICATION` |
 
 ```mermaid
 flowchart TD
-    A[SMS received] --> B{Sender is a known bank?}
-    B -- no --> X[Ignored, nothing stored]
+    A[SMS or app notification received] --> B{Sender or app accepted<br/>by a registered parser?}
+    B -- no --> X[Ignored, text not read, nothing stored]
     B -- yes --> C[Parser extracts operation, date,<br/>amount, currency, merchant, card]
     C -- cannot be read --> U[Kept as unrecognized message<br/>+ notification]
     C --> D[Keyword rules pick a category]
     D --> E{Same fingerprint already saved?}
     E -- yes --> F[Skipped as duplicate]
-    E -- no --> G[Saved as SMS transaction, marked NEW<br/>+ notification]
+    E -- no --> G[Saved as automatic transaction, marked NEW<br/>+ notification]
 ```
 
-**Supported message format (DH d.d.):**
+**Supported formats:**
 
+DH d.d. (SMS):
 ```
 Obvestilo o transakciji: POS NAKUP, 13.10.2026 15:37, kartica ***1754, znesek 161,77 EUR, BS LOGO BREZOVICA. DH d.d.
+```
+
+NLB (NLB Pay notification):
+```
+POS NAKUP 19.10.2026 11:52, kartica ***5802, znesek 10,96 EUR, CHUTIS LJUBLJANA SI. Info: 0038614772000. NLB
 ```
 
 | Operation | Meaning | Type |
@@ -300,7 +323,18 @@ Obvestilo o transakciji: POS NAKUP, 13.10.2026 15:37, kartica ***1754, znesek 16
 | `SPLET/TEL NAKUP` | Online or phone payment | Expense |
 | `BA DVIG` | ATM withdrawal | Expense |
 
-Unknown operations are not saved as transactions, so the app never guesses; they appear under *Unrecognized messages* instead.
+Unknown operations are not saved as transactions, so the app never guesses; they appear under *Unrecognized messages* instead. Date, amount, operation and merchant handling is shared by all parsers in `BankMessageFields`.
+
+**Notification details:**
+- Requires **Notification access** (Settings → Banking apps, or the setup guide). It is a special permission without a dialog; the app opens the system settings screen.
+- The expanded text (`EXTRA_BIG_TEXT`) is used when the app provides it, otherwise the normal text (`EXTRA_TEXT`).
+- Group summary notifications (empty "headers" that bundle several notifications) are skipped.
+- When the listener (re)connects, bank notifications still in the shade are processed too, so payments posted while the app wasn't listening aren't missed. Already-saved ones are skipped as duplicates; unreadable ones found this way are not stored again.
+- To test without a real payment, temporarily let `NlbPayParser.acceptsSender` accept `com.android.shell`, then post a fake notification:
+```
+  adb shell "cmd notification post -t 'NLB Pay' nlbtest 'POS NAKUP 19.10.2026 18:55, kartica ***5802, znesek 1,23 EUR, TEST SHOP SI. Info: 1. NLB'"
+```
+  Don't use `-S bigtext`: it replaces the expanded text with a built-in sample. Revert the test change afterwards.
 
 ### Keyword rules
 
@@ -313,7 +347,8 @@ A rule says *"when this keyword appears in the merchant (or the operation), use 
   3. The newest rule wins a tie
 - Each keyword points to exactly one category; saving the same keyword again replaces the old rule.
 - Starter rules are created on first launch (`StarterRules.kt`), together with any categories they need.
-- New rules come from **"Apply to all future transactions"** in the edit form of an automatic transaction (the keyword must appear in that merchant's name) and from the **Rules screen** (Categories → Rules).
+- New rules come from **"Apply to all future transactions"** in the edit form of an automatic transaction (SMS or notification; the keyword must appear in that merchant's name) and from the **Rules screen** (Categories → Rules).
+- Rules apply to all banks and channels alike.
 - Deleting a rule never changes transactions that were already saved.
 
 ### Charts
@@ -332,6 +367,7 @@ A complete backup is **one file** with three sections, each starting with a mark
 [Transactions]
 Date;Type;Amount;Currency;Category;Title;Note;Source
 2026-10-11 19:38;Expense;11,27;EUR;Car / Fuel;BS LOGO BREZOVICA;;SMS
+2026-10-19 11:52;Expense;10,96;EUR;Groceries;CHUTIS LJUBLJANA SI;;NOTIFICATION
 2026-10-14 08:15;Income;1500,00;EUR;Salary;October salary;;MANUAL
 
 [Categories]
@@ -351,6 +387,7 @@ BS LOGO;Merchant;Car / Fuel;Expense
 | Line ending | `\r\n` |
 | Date | `yyyy-MM-dd HH:mm`, local time |
 | Amount | Always positive; `Type` says income or expense |
+| Source | `MANUAL`, `SMS`, `NOTIFICATION`, `WALLET`, `IMPORT` or `RECURRING` |
 | Colors | `#RRGGBB` |
 | Quoting | Standard CSV: fields containing `;`, `"` or line breaks are quoted, inner quotes doubled |
 | Row order | Transactions oldest first |
@@ -370,8 +407,9 @@ BS LOGO;Merchant;Car / Fuel;Expense
 ## Privacy and security
 
 - **SMS:** only messages from registered bank senders are read. All others are dropped before parsing and never stored or logged. Message bodies are never written to the log. Bank messages that can't be parsed are stored locally only, so the user can inspect or delete them.
-- **Receiver protection:** the SMS receiver requires the `BROADCAST_SMS` permission, so only the Android system can deliver messages to it.
-- **Notifications** show amount, merchant and category on the lock screen according to the phone's notification settings; they can be turned off in the app.
+- **Other apps' notifications:** Android shows the listener every notification on the phone. The package name is checked against the registered parsers **before** any text is read; notifications from all other apps are ignored and never stored or logged. Only the result type ("Saved", "Duplicate", …) is logged, never the text. Access can be revoked at any time in the system's *Notification access* settings.
+- **Receiver protection:** the SMS receiver requires the `BROADCAST_SMS` permission and the notification listener requires `BIND_NOTIFICATION_LISTENER_SERVICE`, so only the Android system can deliver messages to them.
+- **Notifications** shown by the app display amount, merchant and category on the lock screen according to the phone's notification settings; they can be turned off in the app.
 - **Credentials:** the Nextcloud **app password** is encrypted with an AES-256-GCM key held in the Android Keystore; the key never leaves the device. After restoring the app on another device the password must be entered again.
 - **Transport:** server addresses must use `https://`. Plain HTTP is rejected.
 - **Least privilege:** use a Nextcloud *app password* (revocable at any time), never the account password.
@@ -383,16 +421,18 @@ BS LOGO;Merchant;Car / Fuel;Expense
 
 ## Extending the app
 
-### Support a new message format from the same bank
-1. Copy the real message (Review → Unrecognized messages → **Copy**) into a new test in `DhSmsParserTest`. Run it and confirm it fails.
-2. Update `DhSmsParser` (usually one line in `typeOf()`).
+### Support a new message format from a supported bank
+1. Copy the real message (Review → Unrecognized messages → **Copy**) into a new test in `DhSmsParserTest` or `NlbPayParserTest`. Run it and confirm it fails.
+2. Update the parser (often one line in `BankMessageFields.typeOf()` or the parser's `PATTERN`).
 3. Run all tests until everything is green, then use **Try again** on the stored message.
 
-### Support another bank or Google Wallet
-1. Create a class implementing `BankMessageParser` (`acceptsSender` + `parse`), with its own test class.
+### Support another bank, banking app or Google Wallet
+1. Create a class in `automation/parser` implementing `BankMessageParser`, with its own test class.
+   - `acceptsSender`: the SMS sender name for SMS, or the **app's package name** for notifications (find it in the app's Play Store link after `id=`).
+   - `parse`: reuse `BankMessageFields` for dates, amounts, operations and merchant names.
 2. Register it in `di/AutomationModule.kt` with one `@Binds @IntoSet` function.
 
-`BankMessageProcessor`, the keyword rules, duplicate detection, notifications and the review queue work with it unchanged.
+`BankMessageProcessor`, the notification listener's whitelist, the keyword rules, duplicate detection, notifications and the review queue work with it unchanged.
 
 ### Add a screen
 1. Add a route to `ui/navigation/Screen.kt`.
@@ -413,7 +453,7 @@ Implement `HistoryExporter` / `HistoryImporter` or `CloudStorage` and bind the n
 | 3. Categories, per-category spending, category management | ✅ Done |
 | 4. CSV export/import, Nextcloud backup | ✅ Done |
 | 5. Bank SMS automation: parser, rules, review queue, unrecognized messages, rule management | ✅ Done |
-| 6. Google Wallet notifications | ⏸ Deferred (Wallet payments already arrive as bank SMS) |
+| 6. Google Wallet notifications | ⏸ Deferred (Wallet payments already arrive as bank SMS; the notification listener from milestone 10 makes it one parser class) |
 | 7. Polish and everyday comfort | ✅ Done |
 | &nbsp;&nbsp;7.1 Date and time picker | ✅ Done |
 | &nbsp;&nbsp;7.2 Categories and rules in the (single-file) backup | ✅ Done |
@@ -425,8 +465,14 @@ Implement `HistoryExporter` / `HistoryImporter` or `CloudStorage` and bind the n
 | &nbsp;&nbsp;7.8 Month start day | ✅ Done |
 | &nbsp;&nbsp;7.9 Carry-over mode | ✅ Done |
 | 8. Testing, polish and release preparation | ⏳ Planned |
+| 9. Repeating transactions | 🚧 In progress |
+| 10. Banking app notifications (NLB Pay) | ✅ Done |
+| &nbsp;&nbsp;10.1 Notification listener and access setting | ✅ Done |
+| &nbsp;&nbsp;10.2 NLB Pay parser, shared `BankMessageFields` | ✅ Done |
+| &nbsp;&nbsp;10.3 Listener → processor, `NOTIFICATION` source | ✅ Done |
+| &nbsp;&nbsp;10.4 Setup guide page and Settings card | ✅ Done |
 
-**Ideas for later:** week start day and weekly view, budgets per category, recurring transactions, multi-currency, home screen widget, applying a new rule to past uncategorized transactions, tap-to-inspect values on the cash flow chart.
+**Ideas for later:** week start day and weekly view, budgets per category, multi-currency, home screen widget, applying a new rule to past uncategorized transactions, tap-to-inspect values on the cash flow chart, a "Test with a message" option for notification formats.
 
 ---
 
