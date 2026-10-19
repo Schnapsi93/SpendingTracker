@@ -12,8 +12,14 @@ interface RecurringTransactionRepository {
     /** Saves changes to an existing template (matched by id). */
     suspend fun update(recurring: RecurringTransaction)
 
-    /** Stops a series. Transactions it already created are kept. */
+    /**
+     * Stops a series. Its entries are kept but unlinked, so they become
+     * ordinary transactions.
+     */
     suspend fun delete(recurring: RecurringTransaction)
+
+    /** One series, or null if it no longer exists. */
+    suspend fun getById(id: Long): RecurringTransaction?
 
     /** Every template, used by the background job. */
     suspend fun getAll(): List<RecurringTransaction>

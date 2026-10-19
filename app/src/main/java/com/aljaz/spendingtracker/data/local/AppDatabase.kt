@@ -3,16 +3,18 @@ package com.aljaz.spendingtracker.data.local
 import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.aljaz.spendingtracker.data.local.dao.CategoryDao
 import com.aljaz.spendingtracker.data.local.dao.CategoryRuleDao
+import com.aljaz.spendingtracker.data.local.dao.RecurringTransactionDao
 import com.aljaz.spendingtracker.data.local.dao.TransactionDao
 import com.aljaz.spendingtracker.data.local.dao.UnrecognizedMessageDao
 import com.aljaz.spendingtracker.data.local.entity.CategoryEntity
 import com.aljaz.spendingtracker.data.local.entity.CategoryRuleEntity
+import com.aljaz.spendingtracker.data.local.entity.RecurringTransactionEntity
 import com.aljaz.spendingtracker.data.local.entity.TransactionEntity
 import com.aljaz.spendingtracker.data.local.entity.UnrecognizedMessageEntity
-import com.aljaz.spendingtracker.data.local.dao.RecurringTransactionDao
-import com.aljaz.spendingtracker.data.local.entity.RecurringTransactionEntity
 
 /**
  * The app's local SQLite database.
@@ -26,6 +28,7 @@ import com.aljaz.spendingtracker.data.local.entity.RecurringTransactionEntity
  * - 3: category_rules table (auto-migration, no data changes)
  * - 4: unrecognized_messages table (auto-migration, no data changes)
  * - 5: recurring_transactions table (auto-migration, no data changes)
+ * - 6: transactions.recurringId column (manual migration MIGRATION_5_6)
  */
 @Database(
     entities = [
@@ -35,7 +38,7 @@ import com.aljaz.spendingtracker.data.local.entity.RecurringTransactionEntity
         UnrecognizedMessageEntity::class,
         RecurringTransactionEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -55,10 +58,28 @@ abstract class AppDatabase : RoomDatabase() {
     /** Gives access to keyword rule queries. */
     abstract fun categoryRuleDao(): CategoryRuleDao
 
-
     /** Gives access to unrecognized bank messages. */
     abstract fun unrecognizedMessageDao(): UnrecognizedMessageDao
 
     /** Gives access to recurring transaction templates. */
     abstract fun recurringTransactionDao(): RecurringTransactionDao
+
+    companion object {
+
+        /**
+         * v5 → v6, written by hand: adds the recurringId column, then links
+         * entries a repeat created earlier. Those carry the fingerprint
+         * "recurring:<seriesId>:<n>", so the series id is read from there.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN recurringId INTEGER")
+                db.execSQL(
+                    "UPDATE transactions SET recurringId = CAST(" +
+                            "substr(substr(dedupeHash, 11), 1, instr(substr(dedupeHash, 11), ':') - 1) " +
+                            "AS INTEGER) WHERE dedupeHash LIKE 'recurring:%'"
+                )
+            }
+        }
+    }
 }

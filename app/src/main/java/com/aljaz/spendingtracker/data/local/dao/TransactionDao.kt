@@ -89,4 +89,9 @@ interface TransactionDao {
                 "FROM transactions WHERE timestamp < :before"
     )
     fun observeBalanceBefore(before: Long): Flow<Long>
+
+
+    /** Unlinks every entry from a series; used when the series is stopped. */
+    @Query("UPDATE transactions SET recurringId = NULL WHERE recurringId = :recurringId")
+    suspend fun clearRecurring(recurringId: Long)
 }

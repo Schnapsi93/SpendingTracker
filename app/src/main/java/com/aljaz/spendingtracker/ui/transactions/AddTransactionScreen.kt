@@ -135,14 +135,12 @@ fun AddTransactionScreen(
             }
 
             // "Repeating transaction" tick box; frequency chips appear once ticked.
-            if (state.canRepeat) {
-                RepeatSection(
-                    repeats = state.repeats,
-                    frequency = state.frequency,
-                    onRepeatChange = viewModel::onRepeatChange,
-                    onFrequencyChange = viewModel::onFrequencyChange
-                )
-            }
+            RepeatSection(
+                repeats = state.repeats,
+                frequency = state.frequency,
+                onRepeatChange = viewModel::onRepeatChange,
+                onFrequencyChange = viewModel::onFrequencyChange
+            )
 
             Text(text = "Category", style = MaterialTheme.typography.titleSmall)
             CategorySelector(
@@ -305,8 +303,8 @@ private fun RepeatSection(
                 }
             }
             Text(
-                text = "The date above is the first time. The next ones are added " +
-                        "automatically; stop them in Settings → Recurring transactions.",
+                text = "Repeats from the date above. Future entries use what you save here. " +
+                        "Untick and save to stop; entries already added stay.",
                 style = MaterialTheme.typography.bodySmall
             )
         }

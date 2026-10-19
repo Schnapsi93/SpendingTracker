@@ -26,7 +26,9 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import com.aljaz.spendingtracker.domain.model.RepeatFrequency
-import com.aljaz.spendingtracker.domain.usecase.AddRecurringTransactionUseCase
+import com.aljaz.spendingtracker.domain.repository.RecurringTransactionRepository
+import com.aljaz.spendingtracker.domain.usecase.SaveRepeatUseCase
+
 
 /**
  * Logic behind the add/edit transaction form.
@@ -44,7 +46,8 @@ class AddTransactionViewModel @Inject constructor(
     private val deleteTransaction: DeleteTransactionUseCase,
     private val observeCategories: ObserveCategoriesUseCase,
     private val createRuleFromTransaction: CreateRuleFromTransactionUseCase,
-    private val addRecurringTransaction: AddRecurringTransactionUseCase
+    private val saveRepeat: SaveRepeatUseCase,
+    private val recurringRepository: RecurringTransactionRepository
 ) : ViewModel() {
 
     /** Id from the navigation route, or null in add mode. */
@@ -81,16 +84,21 @@ class AddTransactionViewModel @Inject constructor(
                 return@launch
             }
 
+            // The series this entry belongs to, if it still exists.
+            val series = transaction.recurringId?.let { recurringRepository.getById(it) }
+
             original = transaction
             _uiState.update {
                 it.copy(
-                    source = transaction.source, // NEW
+                    source = transaction.source,
                     type = transaction.type,
                     amountText = MoneyParser.formatForInput(transaction.amountMinor),
                     title = transaction.title,
                     note = transaction.note.orEmpty(),
                     timestamp = transaction.timestamp,
-                    selectedCategoryId = transaction.categoryId
+                    selectedCategoryId = transaction.categoryId,
+                    repeats = series != null,
+                    frequency = series?.frequency ?: RepeatFrequency.DEFAULT
                 )
             }
         }
@@ -155,8 +163,9 @@ class AddTransactionViewModel @Inject constructor(
     }
 
     /**
-     * Validates the form, then adds a new transaction or updates the
-     * existing one. On success, [AddTransactionUiState.isFinished] becomes true.
+     * Validates the form, saves the transaction (new or edited), then
+     * starts, changes or stops its repeat. On success,
+     * [AddTransactionUiState.isFinished] becomes true.
      */
     fun onSaveClick() {
         val state = _uiState.value
@@ -175,24 +184,25 @@ class AddTransactionViewModel @Inject constructor(
         viewModelScope.launch {
             val existing = original
 
-            val result: AppResult<Any> = if (existing == null) {
-                val newTransaction = Transaction(
-                    type = state.type,
-                    amountMinor = amountMinor,
-                    currency = DEFAULT_CURRENCY,
-                    categoryId = state.selectedCategoryId,
-                    title = state.title,
-                    note = state.note,
-                    timestamp = state.timestamp
+            // 1) Save the transaction itself and get its id.
+            val savedId: Long? = if (existing == null) {
+                val result = addTransaction(
+                    Transaction(
+                        type = state.type,
+                        amountMinor = amountMinor,
+                        currency = DEFAULT_CURRENCY,
+                        categoryId = state.selectedCategoryId,
+                        title = state.title,
+                        note = state.note,
+                        timestamp = state.timestamp
+                    )
                 )
-                // A ticked box also sets up the following occurrences.
-                if (state.repeats && state.canRepeat) {
-                    addRecurringTransaction(newTransaction, state.frequency)
-                } else {
-                    addTransaction(newTransaction)
+                when (result) {
+                    is AppResult.Success -> result.data
+                    is AppResult.Error -> { showSaveError(result.message); null }
                 }
             } else {
-                updateTransaction(
+                val result = updateTransaction(
                     existing.copy(
                         type = state.type,
                         amountMinor = amountMinor,
@@ -204,18 +214,25 @@ class AddTransactionViewModel @Inject constructor(
                         reviewed = true
                     )
                 )
+                when (result) {
+                    is AppResult.Success -> existing.id
+                    is AppResult.Error -> { showSaveError(result.message); null }
+                }
+            }
+            if (savedId == null) return@launch
+
+            // 2) Apply the tick box, using the saved (cleaned) values.
+            getTransaction(savedId)?.let { saved ->
+                saveRepeat(saved, state.repeats, state.frequency)
             }
 
-            when (result) {
-                is AppResult.Success ->
-                    _uiState.update { it.copy(isSaving = false, isFinished = true) }
-                is AppResult.Error ->
-                    _uiState.update {
-                        it.copy(isSaving = false, errorMessage = result.message)
-                    }
-            }
+            _uiState.update { it.copy(isSaving = false, isFinished = true) }
         }
     }
+
+    /** Shows why saving failed and lets the user try again. */
+    private fun showSaveError(message: String) =
+        _uiState.update { it.copy(isSaving = false, errorMessage = message) }
 
 
 

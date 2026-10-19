@@ -10,6 +10,7 @@ package com.aljaz.spendingtracker.domain.model
  * @property amountMinor amount in minor units (cents), always positive
  * @property timestamp when it happened, UTC epoch milliseconds
  * @property reviewed false for auto-added entries awaiting confirmation
+ * @property recurringId the repeating series this entry belongs to, or null
  */
 data class Transaction(
     val id: Long = 0,
@@ -23,5 +24,6 @@ data class Transaction(
     val source: TransactionSource = TransactionSource.MANUAL,
     val rawText: String? = null,
     val dedupeHash: String? = null,
-    val reviewed: Boolean = true
+    val reviewed: Boolean = true,
+    val recurringId: Long? = null
 )

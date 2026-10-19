@@ -1,6 +1,9 @@
 package com.aljaz.spendingtracker.data.repository
 
+import androidx.room.withTransaction
+import com.aljaz.spendingtracker.data.local.AppDatabase
 import com.aljaz.spendingtracker.data.local.dao.RecurringTransactionDao
+import com.aljaz.spendingtracker.data.local.dao.TransactionDao
 import com.aljaz.spendingtracker.data.mapper.toDomain
 import com.aljaz.spendingtracker.data.mapper.toEntity
 import com.aljaz.spendingtracker.domain.model.RecurringTransaction
@@ -11,7 +14,9 @@ import javax.inject.Inject
 
 /** Room-backed implementation of [RecurringTransactionRepository]. */
 class RecurringTransactionRepositoryImpl @Inject constructor(
-    private val dao: RecurringTransactionDao
+    private val database: AppDatabase,
+    private val dao: RecurringTransactionDao,
+    private val transactionDao: TransactionDao
 ) : RecurringTransactionRepository {
 
     override suspend fun add(recurring: RecurringTransaction): Long =
@@ -20,8 +25,16 @@ class RecurringTransactionRepositoryImpl @Inject constructor(
     override suspend fun update(recurring: RecurringTransaction) =
         dao.update(recurring.toEntity())
 
-    override suspend fun delete(recurring: RecurringTransaction) =
-        dao.delete(recurring.toEntity())
+    override suspend fun delete(recurring: RecurringTransaction) {
+        // Both steps or neither: no entry is left pointing at a missing series.
+        database.withTransaction {
+            transactionDao.clearRecurring(recurring.id)
+            dao.delete(recurring.toEntity())
+        }
+    }
+
+    override suspend fun getById(id: Long): RecurringTransaction? =
+        dao.getById(id)?.toDomain()
 
     override suspend fun getAll(): List<RecurringTransaction> =
         dao.getAll().map { it.toDomain() }

@@ -50,22 +50,41 @@ data class RecurringTransaction(
         occurrenceAt(generatedCount, zone)
 
     /**
-     * Builds the transaction for occurrence number [index].
-     *
-     * The dedupe hash makes creating the same occurrence twice impossible,
-     * even if two background runs overlap.
+     * Index of the first occurrence after [moment], never less than 1
+     * (occurrence 0 is the entry the series was started from).
+     * Used when a series is changed, so only future entries are affected.
      */
-    fun toTransaction(index: Int, zone: ZoneId = ZoneId.systemDefault()): Transaction =
-        Transaction(
+    fun firstIndexAfter(moment: Long, zone: ZoneId = ZoneId.systemDefault()): Int {
+        var index = 1
+        while (occurrenceAt(index, zone) <= moment && index < MAX_INDEX) index++
+        return index
+    }
+
+    /**
+     * Builds the transaction for occurrence number [index], linked to this series.
+     *
+     * The fingerprint uses the exact time, so the same occurrence can never
+     * be created twice, even if the series is changed or two runs overlap.
+     */
+    fun toTransaction(index: Int, zone: ZoneId = ZoneId.systemDefault()): Transaction {
+        val time = occurrenceAt(index, zone)
+        return Transaction(
             type = type,
             amountMinor = amountMinor,
             currency = currency,
             categoryId = categoryId,
             title = title,
             note = note,
-            timestamp = occurrenceAt(index, zone),
+            timestamp = time,
             source = TransactionSource.RECURRING,
-            dedupeHash = "recurring:$id:$index",
-            reviewed = true
+            dedupeHash = "recurring:$id:$time",
+            reviewed = true,
+            recurringId = id
         )
+    }
+
+    private companion object {
+        /** Safety stop for very old start dates. */
+        const val MAX_INDEX = 100_000
+    }
 }

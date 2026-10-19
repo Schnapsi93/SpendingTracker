@@ -57,5 +57,9 @@ data class TransactionEntity(
     val dedupeHash: String?,
 
     /** False for auto-added entries until the user confirms them. */
-    val reviewed: Boolean = true
+    val reviewed: Boolean = true,
+
+
+    /** Repeating series this entry belongs to, or null for a one-off. */
+    val recurringId: Long? = null
 )

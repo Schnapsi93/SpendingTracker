@@ -31,4 +31,7 @@ interface RecurringTransactionDao {
     /** Makes every template in a category uncategorized; used before deleting it. */
     @Query("UPDATE recurring_transactions SET categoryId = NULL WHERE categoryId = :categoryId")
     suspend fun clearCategory(categoryId: Long)
+
+    @Query("SELECT * FROM recurring_transactions WHERE id = :id")
+    suspend fun getById(id: Long): RecurringTransactionEntity?
 }

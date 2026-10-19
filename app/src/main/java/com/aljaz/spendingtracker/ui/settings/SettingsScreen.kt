@@ -1,5 +1,12 @@
 package com.aljaz.spendingtracker.ui.settings
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -12,38 +19,31 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import android.Manifest
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.provider.Settings
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import android.os.Build
-import androidx.compose.material3.Switch
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.aljaz.spendingtracker.automation.externalnotifications.ExternalNotificationAccess
 import com.aljaz.spendingtracker.ui.components.DayPickerDialog
 
 /**
@@ -153,6 +153,12 @@ fun SettingsScreen(
                 onFolderChange = viewModel::onCloudFolderChange,
                 onSaveAndTest = viewModel::onSaveAndTestClick,
                 onBackupNow = viewModel::onBackupNowClick
+            )
+
+
+            // ----- External notifications -----
+            ExternalNotificationAccessRow(
+
             )
 
 
@@ -462,3 +468,65 @@ private fun PeriodCard(
     }
 }
 
+
+/**
+ * Settings row showing whether the app may read other apps' notifications
+ * (needed for bank app / Wallet auto-capture), with a button that opens
+ * the system "Notification access" screen.
+ *
+ * The status is re-checked every time the screen resumes, so it updates
+ * right after the user returns from system settings.
+ */
+@Composable
+private fun ExternalNotificationAccessRow(modifier: Modifier = Modifier) {
+
+    // Context is needed to query the system and to start the settings screen.
+    val context = LocalContext.current
+
+    // Current access state. `remember` keeps it across recompositions;
+    // `mutableStateOf` makes the UI redraw when it changes.
+    var granted by remember {
+        mutableStateOf(ExternalNotificationAccess.isGranted(context))
+    }
+
+    // Runs when the screen becomes visible again (e.g. back from settings).
+    // `remember` alone would only check once, so the status would go stale.
+    LifecycleResumeEffect(Unit) {
+        granted = ExternalNotificationAccess.isGranted(context)
+        onPauseOrDispose { }   // required cleanup block, nothing to clean up here
+    }
+
+    OutlinedButton(onClick = {
+        Log.d("NotifCapture", "Grant clicked")
+        ExternalNotificationAccess.openSettings(context)
+    }) {
+        Text(if (granted) "Manage" else "Grant")
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left side: title + status. weight(1f) takes all free space,
+        // which pushes the button to the right edge.
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Read app notifications",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = if (granted) "Access granted" else "Access not granted",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (granted) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.error
+            )
+        }
+
+        // Right side: opens system settings. The label changes with the state.
+        OutlinedButton(onClick = { ExternalNotificationAccess.openSettings(context) }) {
+            Text(if (granted) "Manage" else "Grant")
+        }
+    }
+}

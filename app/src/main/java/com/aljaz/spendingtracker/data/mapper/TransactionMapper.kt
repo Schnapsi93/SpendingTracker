@@ -16,7 +16,8 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     source = source,
     rawText = rawText,
     dedupeHash = dedupeHash,
-    reviewed = reviewed
+    reviewed = reviewed,
+    recurringId = recurringId
 )
 
 /** Converts the domain model into a database row. */
@@ -32,5 +33,6 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     source = source,
     rawText = rawText,
     dedupeHash = dedupeHash,
-    reviewed = reviewed
+    reviewed = reviewed,
+    recurringId = recurringId
 )

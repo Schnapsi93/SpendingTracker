@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 5,
-    "identityHash": "d0f1d12409b25882944ed3f17a5d7d90",
+    "identityHash": "5ef43d57d5366f8d318bab474232a4f9",
     "entities": [
       {
         "tableName": "transactions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `type` TEXT NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `categoryId` INTEGER, `title` TEXT NOT NULL, `note` TEXT, `timestamp` INTEGER NOT NULL, `source` TEXT NOT NULL, `rawText` TEXT, `dedupeHash` TEXT, `reviewed` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `type` TEXT NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `categoryId` INTEGER, `title` TEXT NOT NULL, `note` TEXT, `timestamp` INTEGER NOT NULL, `source` TEXT NOT NULL, `rawText` TEXT, `dedupeHash` TEXT, `reviewed` INTEGER NOT NULL, `recurringId` INTEGER)",
         "fields": [
           {
             "fieldPath": "id",
@@ -75,6 +75,11 @@
             "columnName": "reviewed",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "recurringId",
+            "columnName": "recurringId",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -365,7 +370,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd0f1d12409b25882944ed3f17a5d7d90')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5ef43d57d5366f8d318bab474232a4f9')"
     ]
   }
 }

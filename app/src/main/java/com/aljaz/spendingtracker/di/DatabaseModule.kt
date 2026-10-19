@@ -33,7 +33,9 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "spending_tracker.db"
-        ).build()
+        )
+            .addMigrations(AppDatabase.MIGRATION_5_6)
+            .build()
 
     /** Exposes the transaction DAO so it can be injected directly. */
     @Provides
