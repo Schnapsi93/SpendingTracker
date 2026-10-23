@@ -19,7 +19,7 @@ data class StarterRule(
  * The rules created when the rules table is empty.
  * All are expense rules, and their categories match [com.aljaz.spendingtracker.domain.model.DefaultCategories],
  * so on a fresh install no extra categories are created.
- * Change the list here to change the starting set; existing installs keep their own rules.
+ * Change the list here to change the starting set; existing instals keep their own rules.
  */
 object StarterRules {
 

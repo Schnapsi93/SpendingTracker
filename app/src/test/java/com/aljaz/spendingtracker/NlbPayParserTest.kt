@@ -20,6 +20,8 @@ class NlbPayParserTest {
     private fun millis(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long =
         LocalDateTime.of(year, month, day, hour, minute).toInstant(ZoneOffset.UTC).toEpochMilli()
 
+    // ---------- Card payments ----------
+
     @Test
     fun posPurchase() {
         val result = parser.parse(
@@ -69,6 +71,44 @@ class NlbPayParserTest {
             )
         )
     }
+
+    // ---------- Incoming transfers ----------
+
+    @Test
+    fun incomingTransfer() {
+        val result = parser.parse("22.10.2026 - Prejeli ste 3.40€ od Majda D.", utc)
+        assertNotNull(result)
+        result!!
+        assertEquals("PREJELI STE", result.operation)
+        assertEquals(TransactionType.INCOME, result.type)
+        assertEquals(340L, result.amountMinor)
+        assertEquals("EUR", result.currency)
+        assertEquals(millis(2026, 10, 22, 0, 0), result.timestamp) // no time: start of day
+        assertEquals("Majda D.", result.merchant)
+        assertNull(result.cardLast4)
+    }
+
+    @Test
+    fun incomingTransferWithLineBreak() {
+        val result = parser.parse("22.10.2026 - Prejeli ste 3.40€ od Majda\nD.", utc)
+        assertEquals("Majda D.", result?.merchant)
+    }
+
+    @Test
+    fun incomingTransferWithCommaAndWrittenCurrency() {
+        val result = parser.parse("1.9.2026 - Prejeli ste 120,00 EUR od JANEZ NOVAK", utc)
+        assertEquals(12000L, result?.amountMinor)
+        assertEquals("EUR", result?.currency)
+        assertEquals("JANEZ NOVAK", result?.merchant)
+    }
+
+    @Test
+    fun incomingTransferWithThousandsSeparatorIsNotGuessed() {
+        // Unknown how NLB writes large amounts; better unrecognized than wrong.
+        assertNull(parser.parse("22.10.2026 - Prejeli ste 1,234.56€ od X", utc))
+    }
+
+    // ---------- Other ----------
 
     @Test
     fun nonTransactionTextReturnsNull() {

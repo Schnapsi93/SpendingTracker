@@ -316,12 +316,15 @@ NLB (NLB Pay notification):
 ```
 POS NAKUP 19.10.2026 11:52, kartica ***5802, znesek 10,96 EUR, CHUTIS LJUBLJANA SI. Info: 0038614772000. NLB
 ```
+20.09.2026 - Prejeli ste 6.40€ od Janez D.
+```
 
 | Operation | Meaning | Type |
 |---|---|---|
 | `POS NAKUP` | In-store card payment | Expense |
 | `SPLET/TEL NAKUP` | Online or phone payment | Expense |
 | `BA DVIG` | ATM withdrawal | Expense |
+| `PREJELI STE` | Incoming transfer | Income |
 
 Unknown operations are not saved as transactions, so the app never guesses; they appear under *Unrecognized messages* instead. Date, amount, operation and merchant handling is shared by all parsers in `BankMessageFields`.
 
