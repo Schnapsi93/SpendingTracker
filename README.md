@@ -466,7 +466,7 @@ Implement `HistoryExporter` / `HistoryImporter` or `CloudStorage` and bind the n
 | 3. Categories, per-category spending, category management |  Done |
 | 4. CSV export/import, Nextcloud backup |  Done |
 | 5. Bank SMS automation: parser, rules, review queue, unrecognized messages, rule management |  Done |
-| 6. Google Wallet notifications | ⏸ Deferred (Wallet payments already arrive as bank SMS; the notification listener from milestone 10 makes it one parser class) |
+| 6. Google Wallet notifications |  Deferred (Wallet payments already arrive as bank SMS; the notification listener from milestone 10 makes it one parser class) |
 | 7. Polish and everyday comfort |  Done |
 | &nbsp;&nbsp;7.1 Date and time picker |  Done |
 | &nbsp;&nbsp;7.2 Categories and rules in the (single-file) backup |  Done |
@@ -477,7 +477,7 @@ Implement `HistoryExporter` / `HistoryImporter` or `CloudStorage` and bind the n
 | &nbsp;&nbsp;7.7 Cash flow chart |  Done |
 | &nbsp;&nbsp;7.8 Month start day |  Done |
 | &nbsp;&nbsp;7.9 Carry-over mode |  Done |
-| 8. Testing, polish and release preparation | ⏳ Planned |
+| 8. Testing, polish and release preparation |  Planned |
 | 9. Repeating transactions |  In progress |
 | 10. Banking app notifications (NLB Pay, DH Denarnik) |  Done |
 | &nbsp;&nbsp;10.1 Notification listener and access setting |  Done |
