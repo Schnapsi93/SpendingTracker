@@ -4,13 +4,17 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aljaz.spendingtracker.automation.BankMessageProcessor
+import com.aljaz.spendingtracker.automation.BankMessageResult
+import com.aljaz.spendingtracker.automation.notifications.NotificationPreferences
+import com.aljaz.spendingtracker.automation.parser.DhSmsParser
 import com.aljaz.spendingtracker.core.AppResult
-import com.aljaz.spendingtracker.domain.backup.BackupSettingsRepository
+import com.aljaz.spendingtracker.core.MoneyFormatter
 import com.aljaz.spendingtracker.domain.export.ImportSummary
+import com.aljaz.spendingtracker.domain.model.TransactionSource
+import com.aljaz.spendingtracker.domain.settings.PeriodSettingsRepository
 import com.aljaz.spendingtracker.domain.usecase.ExportHistoryUseCase
 import com.aljaz.spendingtracker.domain.usecase.ImportHistoryUseCase
-import com.aljaz.spendingtracker.domain.usecase.SaveBackupSettingsUseCase
-import com.aljaz.spendingtracker.domain.usecase.TestCloudConnectionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -21,22 +25,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
-import com.aljaz.spendingtracker.domain.usecase.RunCloudBackupUseCase
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import com.aljaz.spendingtracker.automation.BankMessageProcessor
-import com.aljaz.spendingtracker.automation.BankMessageResult
-import com.aljaz.spendingtracker.automation.parser.DhSmsParser
-import com.aljaz.spendingtracker.core.MoneyFormatter
-import com.aljaz.spendingtracker.domain.model.TransactionSource
-import com.aljaz.spendingtracker.automation.notifications.NotificationPreferences
-import com.aljaz.spendingtracker.domain.settings.PeriodSettingsRepository
 
 /**
- * Logic behind the Settings screen: CSV export and import, and the
- * Nextcloud backup settings.
+ * Logic behind the Settings screen: CSV export and import, time period,
+ * notifications and the bank SMS test. (The Nextcloud backup has its own
+ * screen and ViewModel.)
  *
  * Uses the application context (never an Activity) to open the files
  * the user picked, so the ViewModel can't leak a screen.
@@ -46,10 +39,6 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val exportHistory: ExportHistoryUseCase,
     private val importHistory: ImportHistoryUseCase,
-    private val backupSettings: BackupSettingsRepository,
-    private val saveBackupSettings: SaveBackupSettingsUseCase,
-    private val testCloudConnection: TestCloudConnectionUseCase,
-    private val runCloudBackup: RunCloudBackupUseCase,
     private val bankMessageProcessor: BankMessageProcessor,
     private val notificationPreferences: NotificationPreferences,
     private val periodSettings: PeriodSettingsRepository
@@ -59,7 +48,6 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch { refreshCloudForm() }
         _uiState.update { it.copy(notificationsEnabled = notificationPreferences.isEnabled()) }
 
         // Keep the shown period settings in sync with the stored ones.
@@ -173,7 +161,6 @@ class SettingsViewModel @Inject constructor(
     /** Saves the day of the month periods start on. Home updates immediately. */
     fun onMonthStartDayChange(day: Int) = periodSettings.setMonthStartDay(day)
 
-
     /** Turns carry-over on or off. Home updates immediately. */
     fun onCarryOverToggle(enabled: Boolean) = periodSettings.setCarryOver(enabled)
 
@@ -221,88 +208,6 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
-    // ---------- Nextcloud backup ----------
-
-    fun onCloudUrlChange(value: String) = updateCloud { it.copy(serverUrl = value, message = null) }
-
-    fun onCloudUsernameChange(value: String) = updateCloud { it.copy(username = value, message = null) }
-
-    fun onCloudPasswordChange(value: String) = updateCloud { it.copy(password = value, message = null) }
-
-    fun onCloudFolderChange(value: String) = updateCloud { it.copy(folder = value, message = null) }
-
-    /** Saves the form; if that works, tests the connection with the saved settings. */
-    fun onSaveAndTestClick() {
-        val form = _uiState.value.cloud
-        if (form.isWorking || form.isBackingUp) return // ignore double taps
-
-        updateCloud { it.copy(isWorking = true, message = null) }
-
-        viewModelScope.launch {
-            val saved = saveBackupSettings(
-                serverUrl = form.serverUrl,
-                username = form.username,
-                folder = form.folder,
-                newPassword = form.password
-            )
-            if (saved is AppResult.Error) {
-                // Keep what the user typed so they can correct it.
-                updateCloud { it.copy(isWorking = false, message = saved.message) }
-                return@launch
-            }
-
-            val message = when (val test = testCloudConnection()) {
-                is AppResult.Success -> "Connected. The backup folder is ready."
-                is AppResult.Error -> "Saved, but the connection failed: ${test.message}"
-            }
-            refreshCloudForm() // shows the cleaned-up values and clears the password field
-            updateCloud { it.copy(isWorking = false, message = message) }
-        }
-    }
-
-    /** Uploads a backup right away, regardless of the monthly schedule. */
-    fun onBackupNowClick() {
-        val form = _uiState.value.cloud
-        if (form.isWorking || form.isBackingUp) return // ignore double taps
-
-        updateCloud { it.copy(isBackingUp = true, message = null) }
-
-        viewModelScope.launch {
-            val message = when (val result = runCloudBackup()) {
-                is AppResult.Success ->
-                    "Backed up ${result.data} transactions to ${RunCloudBackupUseCase.BACKUP_FILE_NAME}."
-                is AppResult.Error -> "Backup failed: ${result.message}"
-            }
-            refreshCloudForm() // updates "Last backup"
-            updateCloud { it.copy(isBackingUp = false, message = message) }
-        }
-    }
-
-    /** Loads the saved settings into the form. The password field always starts empty. */
-    private suspend fun refreshCloudForm() {
-        val settings = backupSettings.load()
-        val lastBackup = backupSettings.lastBackupAt()?.let { formatTime(it) }
-        updateCloud {
-            it.copy(
-                serverUrl = settings.serverUrl,
-                username = settings.username,
-                folder = settings.folder,
-                password = "",
-                hasSavedPassword = settings.hasPassword,
-                lastBackupText = lastBackup
-            )
-        }
-    }
-
-    /** e.g. "Oct 14, 2026, 22:15", following the phone's language. */
-    private fun formatTime(epochMillis: Long): String =
-        Instant.ofEpochMilli(epochMillis)
-            .atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))
-
-    /** Applies a change to the Nextcloud form state. */
-    private fun updateCloud(change: (CloudFormState) -> CloudFormState) =
-        _uiState.update { it.copy(cloud = change(it.cloud)) }
 
     private companion object {
         const val MAX_ERRORS_SHOWN = 5

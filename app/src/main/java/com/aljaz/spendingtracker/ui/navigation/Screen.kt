@@ -39,7 +39,7 @@ sealed class Screen(val route: String) {
     data object Categories : Screen("categories")
 
 
-    /** App settings: export, and later the cloud backup. */
+    /** App settings: export, period, bank messages, notifications, accounts. */
     data object Settings : Screen("settings")
 
     /** Automatic transactions waiting for the user's confirmation. */
@@ -65,6 +65,9 @@ sealed class Screen(val route: String) {
 
     /** Login to the shared expenses server; opened from Settings. */
     data object SharedAccount : Screen("shared_account")
+
+    /** Nextcloud backup settings and "Back up now"; opened from Settings. */
+    data object BackupAccount : Screen("backup_account")
 
     /** Shared expenses of one period and who owes whom; opens on the period passed in. */
     data object SharedSummary : Screen("shared_summary?$SHARED_MONTH_ARG={$SHARED_MONTH_ARG}") {

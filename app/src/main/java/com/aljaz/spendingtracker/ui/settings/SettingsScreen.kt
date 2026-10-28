@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -36,8 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -47,11 +44,13 @@ import com.aljaz.spendingtracker.ui.components.DayPickerDialog
 import com.aljaz.spendingtracker.ui.components.rememberNotificationAccess
 
 /**
- * Settings screen: CSV export and import, and the Nextcloud backup.
+ * Settings screen: CSV export and import, period, bank messages,
+ * notifications, and the entries to the shared and backup accounts.
  *
  * @param onBackClick called when the user wants to return to Home
  * @param onShowSetupGuideClick called when the user wants to see the setup guide again
  * @param onSharedAccountClick called when the user wants to open the shared expenses login
+ * @param onBackupAccountClick called when the user wants to open the Nextcloud backup settings
  * @param viewModel provided by Hilt automatically
  */
 @Composable
@@ -59,6 +58,7 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     onShowSetupGuideClick: () -> Unit,
     onSharedAccountClick: () -> Unit,
+    onBackupAccountClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -153,15 +153,7 @@ fun SettingsScreen(
             SharedExpensesCard(onOpenClick = onSharedAccountClick)
 
             // ----- Nextcloud backup -----
-            CloudBackupCard(
-                form = state.cloud,
-                onUrlChange = viewModel::onCloudUrlChange,
-                onUsernameChange = viewModel::onCloudUsernameChange,
-                onPasswordChange = viewModel::onCloudPasswordChange,
-                onFolderChange = viewModel::onCloudFolderChange,
-                onSaveAndTest = viewModel::onSaveAndTestClick,
-                onBackupNow = viewModel::onBackupNowClick
-            )
+            BackupCard(onOpenClick = onBackupAccountClick)
 
             // ----- Help -----
             TextButton(onClick = onShowSetupGuideClick) {
@@ -194,21 +186,11 @@ private fun SharedExpensesCard(onOpenClick: () -> Unit) {
 }
 
 /**
- * The Nextcloud settings form, the backup buttons, and the time of the
- * last successful backup.
+ * Entry point to the Nextcloud backup. The account and the backup buttons
+ * are on their own screen, like the shared expenses account.
  */
 @Composable
-private fun CloudBackupCard(
-    form: CloudFormState,
-    onUrlChange: (String) -> Unit,
-    onUsernameChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onFolderChange: (String) -> Unit,
-    onSaveAndTest: () -> Unit,
-    onBackupNow: () -> Unit
-) {
-    val isBusy = form.isWorking || form.isBackingUp
-
+private fun BackupCard(onOpenClick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -216,66 +198,11 @@ private fun CloudBackupCard(
         ) {
             Text(text = "Nextcloud backup", style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "Backs up your transactions, categories and keyword rules once a " +
-                        "month as spending_backup.csv, whenever the phone is online. " +
-                        "Use an app password (Nextcloud → Personal settings → Security), " +
-                        "not your main password.",
+                text = "Backs up your transactions, categories and keyword rules to your " +
+                        "Nextcloud once a month, whenever the phone is online.",
                 style = MaterialTheme.typography.bodyMedium
             )
-
-            OutlinedTextField(
-                value = form.serverUrl,
-                onValueChange = onUrlChange,
-                label = { Text("Server address") },
-                placeholder = { Text("https://cloud.example.com") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = form.username,
-                onValueChange = onUsernameChange,
-                label = { Text("Username") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = form.password,
-                onValueChange = onPasswordChange,
-                label = { Text("App password") },
-                placeholder = {
-                    Text(if (form.hasSavedPassword) "Saved. Leave empty to keep it" else "")
-                },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = form.folder,
-                onValueChange = onFolderChange,
-                label = { Text("Folder in Nextcloud") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onSaveAndTest, enabled = !isBusy) {
-                    Text(if (form.isWorking) "Connecting…" else "Save and test")
-                }
-                // Only possible once a password has been saved.
-                OutlinedButton(onClick = onBackupNow, enabled = !isBusy && form.hasSavedPassword) {
-                    Text(if (form.isBackingUp) "Backing up…" else "Back up now")
-                }
-            }
-
-            Text(
-                text = "Last backup: ${form.lastBackupText ?: "never"}",
-                style = MaterialTheme.typography.bodySmall
-            )
-            form.message?.let { message ->
-                Text(text = message, style = MaterialTheme.typography.bodyMedium)
-            }
+            OutlinedButton(onClick = onOpenClick) { Text("Backup account") }
         }
     }
 }

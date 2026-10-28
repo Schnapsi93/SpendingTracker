@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.aljaz.spendingtracker.ui.backup.BackupScreen
 import com.aljaz.spendingtracker.ui.categories.CategoriesScreen
 import com.aljaz.spendingtracker.ui.charts.ChartsScreen
 import com.aljaz.spendingtracker.ui.home.HomeScreen
@@ -97,12 +98,17 @@ fun AppNavHost(
             SettingsScreen(
                 onBackClick = { navController.popBackStack() },
                 onShowSetupGuideClick = { navController.navigate(Screen.Onboarding.route) },
-                onSharedAccountClick = { navController.navigate(Screen.SharedAccount.route) }
+                onSharedAccountClick = { navController.navigate(Screen.SharedAccount.route) },
+                onBackupAccountClick = { navController.navigate(Screen.BackupAccount.route) }
             )
         }
 
         composable(Screen.SharedAccount.route) {
             SharedAccountScreen(onBackClick = { navController.popBackStack() })
+        }
+
+        composable(Screen.BackupAccount.route) {
+            BackupScreen(onBackClick = { navController.popBackStack() })
         }
 
         // The month argument is optional: "shared_summary" alone opens the current period.
