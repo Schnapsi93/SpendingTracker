@@ -1,8 +1,10 @@
 package com.aljaz.spendingtracker.di
 
+import com.aljaz.spendingtracker.data.sharing.SettlementRepositoryImpl
 import com.aljaz.spendingtracker.data.sharing.SharedAccountRepositoryImpl
 import com.aljaz.spendingtracker.data.sharing.SharedExpenseRepositoryImpl
 import com.aljaz.spendingtracker.data.sharing.SharedSyncRepositoryImpl
+import com.aljaz.spendingtracker.domain.sharing.SettlementRepository
 import com.aljaz.spendingtracker.domain.sharing.SharedAccountRepository
 import com.aljaz.spendingtracker.domain.sharing.SharedExpenseRepository
 import com.aljaz.spendingtracker.domain.sharing.SharedSyncRepository
@@ -34,4 +36,10 @@ abstract class SharingModule {
     abstract fun bindSharedExpenseRepository(
         impl: SharedExpenseRepositoryImpl
     ): SharedExpenseRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSettlementRepository(
+        impl: SettlementRepositoryImpl
+    ): SettlementRepository
 }

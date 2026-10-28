@@ -9,6 +9,7 @@ import com.aljaz.spendingtracker.data.local.dao.CategoryDao
 import com.aljaz.spendingtracker.data.local.dao.CategoryRuleDao
 import com.aljaz.spendingtracker.data.local.dao.PendingDeletionDao
 import com.aljaz.spendingtracker.data.local.dao.RecurringTransactionDao
+import com.aljaz.spendingtracker.data.local.dao.SettlementDao
 import com.aljaz.spendingtracker.data.local.dao.SharedExpenseDao
 import com.aljaz.spendingtracker.data.local.dao.TransactionDao
 import com.aljaz.spendingtracker.data.local.dao.UnrecognizedMessageDao
@@ -16,6 +17,7 @@ import com.aljaz.spendingtracker.data.local.entity.CategoryEntity
 import com.aljaz.spendingtracker.data.local.entity.CategoryRuleEntity
 import com.aljaz.spendingtracker.data.local.entity.PendingDeletionEntity
 import com.aljaz.spendingtracker.data.local.entity.RecurringTransactionEntity
+import com.aljaz.spendingtracker.data.local.entity.SettlementEntity
 import com.aljaz.spendingtracker.data.local.entity.SharedExpenseEntity
 import com.aljaz.spendingtracker.data.local.entity.TransactionEntity
 import com.aljaz.spendingtracker.data.local.entity.UnrecognizedMessageEntity
@@ -35,6 +37,7 @@ import com.aljaz.spendingtracker.data.local.entity.UnrecognizedMessageEntity
  * - 6: transactions.recurringId column (manual migration MIGRATION_5_6)
  * - 7: split/sync columns on transactions and categories (manual migration MIGRATION_6_7)
  * - 8: shared_expenses and pending_deletions tables (auto-migration, no data changes)
+ * - 9: settlements table (auto-migration, no data changes)
  */
 @Database(
     entities = [
@@ -44,16 +47,18 @@ import com.aljaz.spendingtracker.data.local.entity.UnrecognizedMessageEntity
         UnrecognizedMessageEntity::class,
         RecurringTransactionEntity::class,
         SharedExpenseEntity::class,
-        PendingDeletionEntity::class
+        PendingDeletionEntity::class,
+        SettlementEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
-        AutoMigration(from = 7, to = 8)
+        AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 8, to = 9)
     ]
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -78,6 +83,9 @@ abstract class AppDatabase : RoomDatabase() {
 
     /** Gives access to deletions waiting to be sent to the server. */
     abstract fun pendingDeletionDao(): PendingDeletionDao
+
+    /** Gives access to the local mirror of settle-up payments. */
+    abstract fun settlementDao(): SettlementDao
 
     companion object {
 

@@ -11,8 +11,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Remembers how far the download got (the "cursor") and the result of the
- * last sync, in private app preferences.
+ * Remembers how far the downloads got (one "cursor" per server collection)
+ * and the result of the last sync, in private app preferences.
  */
 @Singleton
 class SyncStatusStore @Inject constructor(
@@ -33,16 +33,26 @@ class SyncStatusStore @Inject constructor(
     )
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
 
-    /** The server "updated" time of the newest downloaded change, or null for "nothing yet". */
+    /** Server "updated" time of the newest downloaded expense change, or null for "nothing yet". */
     fun cursor(): String? = prefs.getString(KEY_CURSOR, null)
 
     fun saveCursor(cursor: String) {
         prefs.edit().putString(KEY_CURSOR, cursor).apply()
     }
 
+    /** Server "updated" time of the newest downloaded settlement change, or null. */
+    fun settlementCursor(): String? = prefs.getString(KEY_SETTLEMENT_CURSOR, null)
+
+    fun saveSettlementCursor(cursor: String) {
+        prefs.edit().putString(KEY_SETTLEMENT_CURSOR, cursor).apply()
+    }
+
     /** Makes the next sync download everything again. */
     fun resetCursor() {
-        prefs.edit().remove(KEY_CURSOR).apply()
+        prefs.edit()
+            .remove(KEY_CURSOR)
+            .remove(KEY_SETTLEMENT_CURSOR)
+            .apply()
     }
 
     fun setSyncing(isSyncing: Boolean) =
@@ -70,6 +80,7 @@ class SyncStatusStore @Inject constructor(
     private companion object {
         const val PREFS_NAME = "shared_sync"
         const val KEY_CURSOR = "cursor"
+        const val KEY_SETTLEMENT_CURSOR = "settlement_cursor"
         const val KEY_LAST_SUCCESS = "last_success_at"
         const val KEY_LAST_ERROR = "last_error"
     }

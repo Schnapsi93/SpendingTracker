@@ -7,6 +7,7 @@ import com.aljaz.spendingtracker.data.local.dao.CategoryDao
 import com.aljaz.spendingtracker.data.local.dao.CategoryRuleDao
 import com.aljaz.spendingtracker.data.local.dao.PendingDeletionDao
 import com.aljaz.spendingtracker.data.local.dao.RecurringTransactionDao
+import com.aljaz.spendingtracker.data.local.dao.SettlementDao
 import com.aljaz.spendingtracker.data.local.dao.SharedExpenseDao
 import com.aljaz.spendingtracker.data.local.dao.TransactionDao
 import com.aljaz.spendingtracker.data.local.dao.UnrecognizedMessageDao
@@ -76,4 +77,9 @@ object DatabaseModule {
     @Provides
     fun providePendingDeletionDao(database: AppDatabase): PendingDeletionDao =
         database.pendingDeletionDao()
+
+    /** Exposes the settlement mirror DAO so it can be injected directly. */
+    @Provides
+    fun provideSettlementDao(database: AppDatabase): SettlementDao =
+        database.settlementDao()
 }

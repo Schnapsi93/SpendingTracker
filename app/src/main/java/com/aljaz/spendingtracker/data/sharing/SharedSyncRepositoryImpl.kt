@@ -4,11 +4,13 @@ import android.content.Context
 import com.aljaz.spendingtracker.core.AppResult
 import com.aljaz.spendingtracker.data.local.dao.CategoryDao
 import com.aljaz.spendingtracker.data.local.dao.PendingDeletionDao
+import com.aljaz.spendingtracker.data.local.dao.SettlementDao
 import com.aljaz.spendingtracker.data.local.dao.SharedExpenseDao
 import com.aljaz.spendingtracker.data.local.dao.TransactionDao
 import com.aljaz.spendingtracker.data.local.entity.PendingDeletionEntity
 import com.aljaz.spendingtracker.data.local.entity.SharedExpenseEntity
 import com.aljaz.spendingtracker.data.local.entity.TransactionEntity
+import com.aljaz.spendingtracker.data.mapper.toEntity
 import com.aljaz.spendingtracker.domain.model.SyncState
 import com.aljaz.spendingtracker.domain.sharing.SharedAccount
 import com.aljaz.spendingtracker.domain.sharing.SharedSyncRepository
@@ -37,11 +39,14 @@ import javax.inject.Singleton
  *    created or updated on the server; ones that are no longer shared are
  *    marked deleted there.
  * 3. Upload deletions (tombstones) of transactions deleted on this phone.
- * 4. Download every change in the household since the last run into the
- *    local mirror ("shared_expenses").
- * 5. Remove mirrored expenses the server no longer has at all (records
+ * 4. Download every change in the household since the last run: shared
+ *    expenses and settle-up payments, each into its local mirror table.
+ * 5. Remove mirrored records the server no longer has at all (records
  *    deleted completely, e.g. in the PocketBase admin, never show up as
  *    a change in step 4).
+ *
+ * Settle-up payments are never uploaded here: they go to the server the
+ * moment they are recorded (see SettlementRepositoryImpl).
  *
  * Only the payer may change an expense on the server, so the two phones
  * can never overwrite each other's data.
@@ -50,11 +55,13 @@ import javax.inject.Singleton
 class SharedSyncRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val client: PocketBaseClient,
+    private val session: PocketBaseSession,
     private val accountStore: SharedAccountStore,
     private val statusStore: SyncStatusStore,
     private val transactionDao: TransactionDao,
     private val categoryDao: CategoryDao,
     private val sharedExpenseDao: SharedExpenseDao,
+    private val settlementDao: SettlementDao,
     private val pendingDeletionDao: PendingDeletionDao
 ) : SharedSyncRepository {
 
@@ -112,12 +119,14 @@ class SharedSyncRepositoryImpl @Inject constructor(
 
     override suspend fun resetDownloads() = withContext(Dispatchers.IO) {
         sharedExpenseDao.clear()
+        settlementDao.clear()
         statusStore.resetCursor()
     }
 
     override suspend fun clearLocalData() = withContext(Dispatchers.IO) {
         SyncScheduler.cancel(context)
         sharedExpenseDao.clear()
+        settlementDao.clear()
         pendingDeletionDao.clear()
         statusStore.clear()
     }
@@ -125,36 +134,24 @@ class SharedSyncRepositoryImpl @Inject constructor(
     // ---------- One sync run ----------
 
     private suspend fun runSync(account: SharedAccount): AppResult<Unit> {
-        val token = when (val result = logIn(account)) {
+        val token = when (val result = session.freshToken(account)) {
             is AppResult.Error -> return result
             is AppResult.Success -> result.data
         }
 
-        val upload = uploadOwnExpenses(account, token)
-        if (upload is AppResult.Error) return upload
-
-        val deletions = uploadDeletions(account, token)
-        if (deletions is AppResult.Error) return deletions
-
-        val download = downloadChanges(account, token)
-        if (download is AppResult.Error) return download
-
-        return removeVanished(account, token)
-    }
-
-    /** Step 1: logs in with the saved password and returns a fresh token. */
-    private suspend fun logIn(account: SharedAccount): AppResult<String> {
-        val password = accountStore.password()
-            ?: return AppResult.Error(
-                "The saved login can't be read. Log out and in again under Shared account."
-            )
-        return when (val result = client.authWithPassword(account.serverUrl, account.email, password)) {
-            is AppResult.Error -> result
-            is AppResult.Success -> {
-                accountStore.updateToken(result.data.token)
-                AppResult.Success(result.data.token)
-            }
+        val steps: List<suspend () -> AppResult<Unit>> = listOf(
+            { uploadOwnExpenses(account, token) },
+            { uploadDeletions(account, token) },
+            { downloadExpenses(account, token) },
+            { downloadSettlements(account, token) },
+            { removeVanishedExpenses(account, token) },
+            { removeVanishedSettlements(account, token) }
+        )
+        for (step in steps) {
+            val result = step()
+            if (result is AppResult.Error) return result // stop at the first problem
         }
+        return AppResult.Success(Unit)
     }
 
     /** Step 2: uploads confirmed PENDING transactions. */
@@ -208,8 +205,8 @@ class SharedSyncRepositoryImpl @Inject constructor(
         return AppResult.Success(Unit)
     }
 
-    /** Step 4: downloads every change since the last run into the mirror. */
-    private suspend fun downloadChanges(account: SharedAccount, token: String): AppResult<Unit> {
+    /** Step 4a: downloads every expense change since the last run into the mirror. */
+    private suspend fun downloadExpenses(account: SharedAccount, token: String): AppResult<Unit> {
         val since = statusStore.cursor()
         var newest = since
         var page = 1
@@ -239,23 +236,65 @@ class SharedSyncRepositoryImpl @Inject constructor(
         return AppResult.Success(Unit)
     }
 
+    /** Step 4b: downloads every settle-up payment change since the last run. */
+    private suspend fun downloadSettlements(account: SharedAccount, token: String): AppResult<Unit> {
+        val since = statusStore.settlementCursor()
+        var newest = since
+        var page = 1
+
+        do {
+            val result = client.fetchSettlementsChangedSince(
+                account.serverUrl, token, account.householdId, since, page
+            )
+            val data = when (result) {
+                is AppResult.Error -> return result
+                is AppResult.Success -> result.data
+            }
+
+            for (remote in data.items) {
+                if (remote.deleted) {
+                    settlementDao.deleteByUuid(remote.uuid)
+                } else {
+                    settlementDao.upsert(remote.toEntity())
+                }
+                newest = remote.updated
+            }
+            page++
+        } while (page <= data.totalPages)
+
+        newest?.let { statusStore.saveSettlementCursor(it) }
+        return AppResult.Success(Unit)
+    }
+
     /**
-     * Step 5: removes mirrored expenses that no longer exist on the server
+     * Step 5a: removes mirrored expenses that no longer exist on the server
      * (or are deleted there). Only removes, never adds, so an expense created
-     * in the meantime is simply picked up by the next run's step 4.
+     * in the meantime is simply picked up by the next run.
      */
-    private suspend fun removeVanished(account: SharedAccount, token: String): AppResult<Unit> {
+    private suspend fun removeVanishedExpenses(account: SharedAccount, token: String): AppResult<Unit> {
         val onServer = when (
             val result = client.fetchActiveExpenseUuids(account.serverUrl, token, account.householdId)
         ) {
             is AppResult.Error -> return result
             is AppResult.Success -> result.data
         }
-
         sharedExpenseDao.getAllUuids()
             .filterNot { it in onServer }
             .forEach { sharedExpenseDao.deleteByUuid(it) }
+        return AppResult.Success(Unit)
+    }
 
+    /** Step 5b: the same for settle-up payments. */
+    private suspend fun removeVanishedSettlements(account: SharedAccount, token: String): AppResult<Unit> {
+        val onServer = when (
+            val result = client.fetchActiveSettlementUuids(account.serverUrl, token, account.householdId)
+        ) {
+            is AppResult.Error -> return result
+            is AppResult.Success -> result.data
+        }
+        settlementDao.getAllUuids()
+            .filterNot { it in onServer }
+            .forEach { settlementDao.deleteByUuid(it) }
         return AppResult.Success(Unit)
     }
 
