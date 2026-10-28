@@ -28,8 +28,15 @@ class SaveCategoryUseCase @Inject constructor(
         if (name.length > MAX_NAME_LENGTH) {
             return AppResult.Error("Name is too long (max $MAX_NAME_LENGTH characters).")
         }
+        if (category.defaultSplitPercent !in 0..100) {
+            return AppResult.Error("Split share must be between 0 and 100.")
+        }
 
-        val cleaned = category.copy(name = name)
+        // Only expenses are split; an income category is never shared.
+        val cleaned = category.copy(
+            name = name,
+            isSplit = category.isSplit && category.type == TransactionType.EXPENSE
+        )
         val saved = if (cleaned.id == 0L) {
             repository.add(cleaned) != null
         } else {

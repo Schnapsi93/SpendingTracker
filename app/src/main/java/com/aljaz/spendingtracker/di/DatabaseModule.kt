@@ -3,17 +3,17 @@ package com.aljaz.spendingtracker.di
 import android.content.Context
 import androidx.room.Room
 import com.aljaz.spendingtracker.data.local.AppDatabase
+import com.aljaz.spendingtracker.data.local.dao.CategoryDao
+import com.aljaz.spendingtracker.data.local.dao.CategoryRuleDao
+import com.aljaz.spendingtracker.data.local.dao.RecurringTransactionDao
 import com.aljaz.spendingtracker.data.local.dao.TransactionDao
+import com.aljaz.spendingtracker.data.local.dao.UnrecognizedMessageDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import com.aljaz.spendingtracker.data.local.dao.CategoryDao
-import com.aljaz.spendingtracker.data.local.dao.CategoryRuleDao
-import com.aljaz.spendingtracker.data.local.dao.UnrecognizedMessageDao
-import com.aljaz.spendingtracker.data.local.dao.RecurringTransactionDao
 
 /**
  * Tells Hilt how to build the database and its DAOs.
@@ -34,7 +34,10 @@ object DatabaseModule {
             AppDatabase::class.java,
             "spending_tracker.db"
         )
-            .addMigrations(AppDatabase.MIGRATION_5_6)
+            .addMigrations(
+                AppDatabase.MIGRATION_5_6,
+                AppDatabase.MIGRATION_6_7
+            )
             .build()
 
     /** Exposes the transaction DAO so it can be injected directly. */
@@ -47,18 +50,15 @@ object DatabaseModule {
     fun provideCategoryDao(database: AppDatabase): CategoryDao =
         database.categoryDao()
 
-
     /** Exposes the keyword rule DAO so it can be injected directly. */
     @Provides
     fun provideCategoryRuleDao(database: AppDatabase): CategoryRuleDao =
         database.categoryRuleDao()
 
-
     /** Exposes the unrecognized message DAO so it can be injected directly. */
     @Provides
     fun provideUnrecognizedMessageDao(database: AppDatabase): UnrecognizedMessageDao =
         database.unrecognizedMessageDao()
-
 
     /** Exposes the recurring transaction DAO so it can be injected directly. */
     @Provides

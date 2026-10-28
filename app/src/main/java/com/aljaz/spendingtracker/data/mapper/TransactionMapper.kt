@@ -17,7 +17,12 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     rawText = rawText,
     dedupeHash = dedupeHash,
     reviewed = reviewed,
-    recurringId = recurringId
+    recurringId = recurringId,
+    uuid = uuid,
+    isShared = isShared,
+    payerSharePercent = payerSharePercent,
+    syncState = syncState,
+    updatedAt = updatedAt
 )
 
 /** Converts the domain model into a database row. */
@@ -34,5 +39,10 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     rawText = rawText,
     dedupeHash = dedupeHash,
     reviewed = reviewed,
-    recurringId = recurringId
+    recurringId = recurringId,
+    uuid = uuid,
+    isShared = isShared,
+    payerSharePercent = payerSharePercent,
+    syncState = syncState,
+    updatedAt = updatedAt
 )

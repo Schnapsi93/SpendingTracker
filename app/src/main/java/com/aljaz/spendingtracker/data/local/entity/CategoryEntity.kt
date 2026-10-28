@@ -20,5 +20,11 @@ data class CategoryEntity(
     val name: String,
     val type: TransactionType,
     val colorArgb: Int,
-    val isDefault: Boolean
+    val isDefault: Boolean,
+
+    /** True when expenses in this category are split with the partner. */
+    val isSplit: Boolean = false,
+
+    /** The payer's share (percent) pre-filled for new split expenses. */
+    val defaultSplitPercent: Int = 50
 )

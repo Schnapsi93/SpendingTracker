@@ -18,7 +18,7 @@ import javax.inject.Inject
 
 /**
  * Logic behind the Categories screen: the category list, the add/edit
- * dialog, and delete confirmation.
+ * dialog (including the split settings), and delete confirmation.
  */
 @HiltViewModel
 class CategoriesViewModel @Inject constructor(
@@ -55,7 +55,9 @@ class CategoriesViewModel @Inject constructor(
                 existing = category,
                 name = category.name,
                 type = category.type,
-                colorArgb = category.colorArgb
+                colorArgb = category.colorArgb,
+                isSplit = category.isSplit,
+                splitPercentText = category.defaultSplitPercent.toString()
             )
         )
     }
@@ -74,13 +76,45 @@ class CategoriesViewModel @Inject constructor(
     fun onColorChange(colorArgb: Int) =
         updateEditor { it.copy(colorArgb = colorArgb) }
 
+    /** Turns "Split with partner" on or off. */
+    fun onSplitChange(isSplit: Boolean) =
+        updateEditor { it.copy(isSplit = isSplit, splitErrorMessage = null) }
+
+    /** Accepts digits only, at most 3 (so "100" fits). */
+    fun onSplitPercentChange(text: String) {
+        val digits = text.filter { it.isDigit() }.take(3)
+        updateEditor { it.copy(splitPercentText = digits, splitErrorMessage = null) }
+    }
+
     /** Validates and saves; closes the dialog on success, shows the error otherwise. */
     fun onSaveClick() {
         val editor = _uiState.value.editor ?: return
+        val split = editor.isSplit && editor.canSplit
 
-        // Editing keeps id, type and isDefault; only name and color change.
-        val category = editor.existing?.copy(name = editor.name, colorArgb = editor.colorArgb)
-            ?: Category(name = editor.name, type = editor.type, colorArgb = editor.colorArgb)
+        // The share only matters when splitting; otherwise keep the stored value.
+        val percent = if (split) {
+            editor.splitPercentText.toIntOrNull()?.takeIf { it in 0..100 }
+                ?: run {
+                    updateEditor { it.copy(splitErrorMessage = "Enter a number from 0 to 100.") }
+                    return
+                }
+        } else {
+            editor.existing?.defaultSplitPercent ?: DEFAULT_SPLIT_PERCENT
+        }
+
+        // Editing keeps id, type and isDefault; name, color and split settings change.
+        val category = editor.existing?.copy(
+            name = editor.name,
+            colorArgb = editor.colorArgb,
+            isSplit = split,
+            defaultSplitPercent = percent
+        ) ?: Category(
+            name = editor.name,
+            type = editor.type,
+            colorArgb = editor.colorArgb,
+            isSplit = split,
+            defaultSplitPercent = percent
+        )
 
         viewModelScope.launch {
             when (val result = saveCategory(category)) {
@@ -114,4 +148,8 @@ class CategoriesViewModel @Inject constructor(
         _uiState.update { state ->
             state.editor?.let { state.copy(editor = change(it)) } ?: state
         }
+
+    private companion object {
+        const val DEFAULT_SPLIT_PERCENT = 50
+    }
 }

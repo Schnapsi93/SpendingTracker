@@ -9,7 +9,9 @@ fun CategoryEntity.toDomain(): Category = Category(
     name = name,
     type = type,
     colorArgb = colorArgb,
-    isDefault = isDefault
+    isDefault = isDefault,
+    isSplit = isSplit,
+    defaultSplitPercent = defaultSplitPercent
 )
 
 /** Converts the domain model into a database row. */
@@ -18,5 +20,7 @@ fun Category.toEntity(): CategoryEntity = CategoryEntity(
     name = name,
     type = type,
     colorArgb = colorArgb,
-    isDefault = isDefault
+    isDefault = isDefault,
+    isSplit = isSplit,
+    defaultSplitPercent = defaultSplitPercent
 )

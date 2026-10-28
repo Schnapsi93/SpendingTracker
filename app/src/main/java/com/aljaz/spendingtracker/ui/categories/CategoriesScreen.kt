@@ -18,7 +18,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
@@ -26,6 +29,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.aljaz.spendingtracker.domain.model.Category
@@ -43,7 +48,7 @@ import com.aljaz.spendingtracker.ui.components.ColorDot
 
 /**
  * Screen listing all categories, split into expenses and income.
- * Categories can be added, renamed, recolored and deleted here.
+ * Categories can be added, renamed, recolored, marked as split and deleted here.
  *
  * @param onBackClick called when the user wants to return to Home
  * @param onRulesClick called when the user wants to manage keyword rules
@@ -98,6 +103,8 @@ fun CategoriesScreen(
             onNameChange = viewModel::onNameChange,
             onTypeChange = viewModel::onTypeChange,
             onColorChange = viewModel::onColorChange,
+            onSplitChange = viewModel::onSplitChange,
+            onSplitPercentChange = viewModel::onSplitPercentChange,
             onSave = viewModel::onSaveClick,
             onDelete = viewModel::onDeleteClick,
             onDismiss = viewModel::onEditorDismiss
@@ -139,7 +146,10 @@ private fun LazyListScope.categorySection(
     }
 }
 
-/** One category in the list: color dot and name. Tapping opens the editor. */
+/**
+ * One category in the list: color dot, name, and a "Split" label for
+ * split categories. Tapping opens the editor.
+ */
 @Composable
 private fun CategoryRow(category: Category, onClick: () -> Unit) {
     Row(
@@ -151,13 +161,25 @@ private fun CategoryRow(category: Category, onClick: () -> Unit) {
     ) {
         ColorDot(colorArgb = category.colorArgb)
         Spacer(modifier = Modifier.width(12.dp))
-        Text(text = category.name, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = category.name,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        if (category.isSplit) {
+            Text(
+                text = "Split · ${category.defaultSplitPercent}%",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 }
 
 /**
  * Dialog for creating or editing a category.
- * The type can only be chosen for new categories.
+ * The type can only be chosen for new categories; the split settings
+ * are only shown for expense categories.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -166,6 +188,8 @@ private fun CategoryEditorDialog(
     onNameChange: (String) -> Unit,
     onTypeChange: (TransactionType) -> Unit,
     onColorChange: (Int) -> Unit,
+    onSplitChange: (Boolean) -> Unit,
+    onSplitPercentChange: (String) -> Unit,
     onSave: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit
@@ -174,7 +198,11 @@ private fun CategoryEditorDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (editor.isNew) "New category" else "Edit category") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(
+                // Scrolls when the dialog is taller than the screen.
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 OutlinedTextField(
                     value = editor.name,
                     onValueChange = onNameChange,
@@ -213,6 +241,14 @@ private fun CategoryEditorDialog(
                     }
                 }
 
+                if (editor.canSplit) {
+                    SplitSettings(
+                        editor = editor,
+                        onSplitChange = onSplitChange,
+                        onSplitPercentChange = onSplitPercentChange
+                    )
+                }
+
                 // Only existing categories can be deleted.
                 if (!editor.isNew) {
                     TextButton(onClick = onDelete) {
@@ -228,6 +264,49 @@ private fun CategoryEditorDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+}
+
+/**
+ * "Split with partner" switch, plus the default share field when it is on.
+ * The share is the payer's part; the partner owes the rest.
+ */
+@Composable
+private fun SplitSettings(
+    editor: CategoryEditorState,
+    onSplitChange: (Boolean) -> Unit,
+    onSplitPercentChange: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Split with partner",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Switch(checked = editor.isSplit, onCheckedChange = onSplitChange)
+        }
+
+        if (editor.isSplit) {
+            OutlinedTextField(
+                value = editor.splitPercentText,
+                onValueChange = onSplitPercentChange,
+                label = { Text("Payer's share (%)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = editor.splitErrorMessage != null,
+                supportingText = {
+                    Text(
+                        editor.splitErrorMessage
+                            ?: "Default for new expenses; can be changed per expense."
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
 }
 
 /** A tappable color circle; the selected one gets a ring around it. */

@@ -3,9 +3,9 @@ package com.aljaz.spendingtracker.data.local.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.aljaz.spendingtracker.domain.model.SyncState
 import com.aljaz.spendingtracker.domain.model.TransactionSource
 import com.aljaz.spendingtracker.domain.model.TransactionType
-import com.aljaz.spendingtracker.domain.model.SyncState
 
 /**
  * One row of the "transactions" table: a single income or expense.
@@ -20,11 +20,13 @@ import com.aljaz.spendingtracker.domain.model.SyncState
         Index(value = ["timestamp"]),
         // Prevents the same purchase being saved twice (e.g. SMS + Wallet).
         // Manual entries leave this null, and nulls don't count as duplicates.
-        Index(value = ["dedupeHash"], unique = true)
+        Index(value = ["dedupeHash"], unique = true),
+        // Each transaction has its own global id; used to match it with the server.
+        Index(value = ["uuid"], unique = true)
     ]
 )
 data class TransactionEntity(
-    /** Unique id, generated automatically by the database. */
+    /** Local id, generated automatically by the database. Differs between phones. */
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
 
     /** Income or expense. */
@@ -60,25 +62,24 @@ data class TransactionEntity(
     /** False for auto-added entries until the user confirms them. */
     val reviewed: Boolean = true,
 
-
     /** Repeating series this entry belongs to, or null for a one-off. */
     val recurringId: Long? = null,
 
-    /** Global ID, created on the phone, unique index. Existing rows get one in the migration. */
+    /**
+     * Global id (UUID), created on the phone. Unlike [id], it is the same
+     * on the phone and on the server, so the two copies can be matched.
+     */
     val uuid: String,
 
-    /** Whether this expense is split with your partner. */
+    /** True when this expense is split with the partner. */
     val isShared: Boolean = false,
 
-    /** Your share when shared, e.g. 50. Null when not shared. */
+    /** The payer's (this user's) share in percent, e.g. 50. Null when not shared. */
     val payerSharePercent: Int? = null,
 
-    /** Tells the sync job what still has to be uploaded. */
+    /** Tells the sync job whether this row still has to be uploaded. */
     val syncState: SyncState = SyncState.LOCAL_ONLY,
 
-    /** Last edit time, used for conflict resolution. */
+    /** Last edit time, UTC epoch milliseconds. Used to resolve sync conflicts. */
     val updatedAt: Long
-
-
-
 )
