@@ -71,6 +71,15 @@ Built with Kotlin and Jetpack Compose on a layered, test-covered architecture de
 - Accepts files re-saved by Excel (European date formats, Windows-1250 encoding) and older transactions-only exports
 - Monthly automatic backup to Nextcloud over WebDAV, plus a "Back up now" button
 
+### Shared expenses
+- Two users (two phones) each keep their own full tracking; only expenses in **split categories** are shared
+- **Split categories** with a default share (e.g. 50 %), changeable per expense on the form and in the review queue
+- Automatic expenses in a split category arrive pre-ticked as split and are shared only after they are confirmed
+- **Sync** with a self-hosted **PocketBase** server (TrueNAS, behind a Cloudflare Tunnel): uploads in the background a few seconds after a change, hourly, on app start and with "Sync now"; works offline and catches up later
+- **Shared screen** per period: who paid what, each person's share, a per-category table, and the all-time result "who pays whom how much"
+- **Settle-up payments**: record a full or partial payment, see the history, undo mistakes on both phones
+- Notification when the partner adds a shared expense
+
 ### Setup
 - **First-launch setup guide** for SMS, banking app notifications, notifications, period settings and backup; can be reopened from Settings
 
@@ -486,6 +495,31 @@ Implement `HistoryExporter` / `HistoryImporter` or `CloudStorage` and bind the n
 | &nbsp;&nbsp;10.4 Setup guide page and Settings card |  Done |
 | &nbsp;&nbsp;10.5 Incoming transfers as income (NLB Pay) |  Done |
 | &nbsp;&nbsp;10.6 DH Denarnik parser, shared `IncomingTransferFormat` |  Done |
+| 11. Shared expenses with a partner (PocketBase on TrueNAS) |  In progress |
+| &nbsp;&nbsp;11.1 PocketBase server: collections, API rules, Cloudflare Tunnel |  Done |
+| &nbsp;&nbsp;11.2 Split categories and sync fields (database v7) |  Done |
+| &nbsp;&nbsp;11.3 Shared account login |  Done |
+| &nbsp;&nbsp;11.4 Split input on the form and in the review queue |  Done |
+| &nbsp;&nbsp;11.5 Sync engine: upload, deletions, mirror download, clean-up (database v8) |  Done |
+| &nbsp;&nbsp;11.6 Shared summary screen |  Done |
+| &nbsp;&nbsp;11.7 Settle-up payments (database v9) |  Done |
+| &nbsp;&nbsp;11.8 Backup account screen |  Done |
+| &nbsp;&nbsp;11.9 "Count only my share" on Home and Charts |  On hold (see below) |
+| &nbsp;&nbsp;11.10 Notification when the partner adds a shared expense |  Done |
+| &nbsp;&nbsp;11.11 Split settings in the Nextcloud backup |  Planned |
+
+### On hold: "Count only my share" (11.9)
+
+By default, Home and Charts count a split expense with the **whole amount**, the money that actually left the bank account. A €100 grocery bill split 50/50 counts as €100.
+
+The planned option, a **Count only my share** switch in *Settings → Shared expenses*, would make Home and Charts count only this user's part (€50 in the example):
+
+- Home summary, *Spending by category*, the carried-over balance and both charts would use the share; the summary label would read *Expenses (my share)*
+- The transaction list would keep showing the whole amount, with an extra line such as *"split, my share €50.00"*
+- One helper (`Transaction.countedAmountMinor(onlyMyShare)` next to `SplitMath`) would do the calculation everywhere, and the carry-over SQL query would use the same rounding
+- Expenses the partner paid would still appear only on the Shared screen, since they are not this user's bank transactions
+
+The design is finished but not built; it is on hold until it is needed.
 
 **Ideas for later:** week start day and weekly view, budgets per category, multi-currency, home screen widget, applying a new rule to past uncategorized transactions, tap-to-inspect values on the cash flow chart, a "Test with a message" option for notification formats.
 
