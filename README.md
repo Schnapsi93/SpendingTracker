@@ -42,9 +42,9 @@ Built with Kotlin and Jetpack Compose on a layered, test-covered architecture de
 - **Search and filter** across all transactions by text, exact amount, type and category, with totals of the results
 
 ### Charts
-- **Pie chart** of the period's expenses by category, with percentages; categories under 5 % are merged into "Other"
-- List next to the pie with up to 10 categories and exact amounts
-- **Cash flow chart** of the last 12 periods: green income line, red expense line, plus a table with exact amounts
+- One screen: **pie chart** of the period's expenses by category on top, **cash flow chart** below
+- Categories under 5 % are merged into "Other"; the list next to the pie shows exactly the pie's slices, with exact amounts and percentages
+- **Cash flow chart** of the last 12 periods: green income line, red expense line; exact amounts on request
 
 ### Categories and rules
 - Default categories created on first launch; add, rename, recolor and delete categories
@@ -78,7 +78,6 @@ Built with Kotlin and Jetpack Compose on a layered, test-covered architecture de
 - **Sync** with a self-hosted **PocketBase** server (TrueNAS, behind a Cloudflare Tunnel): uploads in the background a few seconds after a change, hourly, on app start and with "Sync now"; works offline and catches up later
 - **Shared screen** per period: who paid what, each person's share, a per-category table, and the all-time result "who pays whom how much"
 - **Settle-up payments**: record a full or partial payment, see the history, undo mistakes on both phones
-- Notification when the partner adds a shared expense
 
 ### Setup
 - **First-launch setup guide** for SMS, banking app notifications, notifications, period settings and backup; can be reopened from Settings
@@ -249,7 +248,7 @@ All tests are local JVM unit tests and run in seconds without an emulator.
 | `TransactionFilterTest` | Search by text, amount, type and category |
 | `PeriodTest` | Period ranges, month start day, clamping in short months |
 | `MonthSummaryTest` | Balance with and without carry-over |
-| `CategoryBreakdownTest` | Pie slices, "Other" merging, legend limit |
+| `CategoryBreakdownTest` | Pie slices, "Other" merging, totals add up |
 | `CashFlowTest` | Grouping into periods, round axis maximums |
 
 When fixing a bug, first add a failing test that reproduces it, then fix the code until the test passes.
@@ -377,8 +376,10 @@ A rule says *"when this keyword appears in the merchant (or the operation), use 
 
 Opened with **Charts >** in Home's summary card, on the period Home is showing.
 
-- **By category:** a pie of the period's expenses. Categories under 5 % are merged into one "Other" slice (a single small category keeps its own slice). The list next to it shows up to 10 categories with exact amounts and percentages; any more are summed into an "Other" line, so the list always adds up to the total.
-- **Cash flow:** 12 periods ending with the selected one; income in green, expenses in red. The Y axis uses round values (steps of 1, 2, 2.5 or 5 × 10ⁿ euros). A table below shows the exact amounts, newest first.
+Both charts are on one screen, below the period switcher.
+
+- **By category (top):** a pie of the period's expenses with the list of categories to its right. Categories under 5 % are merged into one "Other" slice (a single small category keeps its own slice). The list shows exactly the pie's slices, "Other" included, with exact amounts and percentages, so it always adds up to the total.
+- **Cash flow (below):** 12 periods ending with the selected one; income in green, expenses in red. The Y axis uses round values (steps of 1, 2, 2.5 or 5 × 10ⁿ euros). **Show amounts** opens a table with the exact amounts, newest first.
 - Both charts follow the month start day and are drawn with Compose `Canvas`, without a chart library.
 
 ### CSV format
@@ -484,6 +485,7 @@ Implement `HistoryExporter` / `HistoryImporter` or `CloudStorage` and bind the n
 | &nbsp;&nbsp;7.5 First-launch setup guide |  Done |
 | &nbsp;&nbsp;7.6 Pie chart by category |  Done |
 | &nbsp;&nbsp;7.7 Cash flow chart |  Done |
+| &nbsp;&nbsp;7.7a Both charts on one screen |  Done |
 | &nbsp;&nbsp;7.8 Month start day |  Done |
 | &nbsp;&nbsp;7.9 Carry-over mode |  Done |
 | 8. Testing, polish and release preparation |  Planned |
@@ -505,7 +507,7 @@ Implement `HistoryExporter` / `HistoryImporter` or `CloudStorage` and bind the n
 | &nbsp;&nbsp;11.7 Settle-up payments (database v9) |  Done |
 | &nbsp;&nbsp;11.8 Backup account screen |  Done |
 | &nbsp;&nbsp;11.9 "Count only my share" on Home and Charts |  On hold (see below) |
-| &nbsp;&nbsp;11.10 Notification when the partner adds a shared expense |  Done |
+| &nbsp;&nbsp;11.10 Notification when the partner adds a shared expense |  Skipped (not needed for now) |
 | &nbsp;&nbsp;11.11 Split settings in the Nextcloud backup |  Planned |
 
 ### On hold: "Count only my share" (11.9)

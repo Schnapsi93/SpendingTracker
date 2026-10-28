@@ -3,10 +3,11 @@ package com.aljaz.spendingtracker
 import com.aljaz.spendingtracker.domain.charts.CategoryBreakdownCalculator
 import com.aljaz.spendingtracker.domain.model.CategoryTotal
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Checks how expenses are turned into pie slices and the list. */
+/** Checks how expenses are turned into pie slices (which the list also shows). */
 class CategoryBreakdownTest {
 
     @Test
@@ -30,8 +31,6 @@ class CategoryBreakdownTest {
         val other = result.slices.last()
         assertTrue(other.isOther)
         assertEquals(600L, other.amountMinor)
-        // The list still shows every category individually.
-        assertEquals(4, result.legend.size)
     }
 
     @Test
@@ -41,16 +40,20 @@ class CategoryBreakdownTest {
         )
         assertEquals(2, result.slices.size)
         assertEquals(2L, result.slices.last().categoryId)
+        assertFalse(result.slices.last().isOther)
     }
 
     @Test
-    fun legendShowsTenCategoriesAndOther() {
-        val totals = (1L..12L).map { CategoryTotal(it, 1000 + it) }
+    fun slicesAddUpToTheTotal() {
+        val totals = listOf(
+            CategoryTotal(1, 5000), CategoryTotal(2, 2500), CategoryTotal(3, 1500),
+            CategoryTotal(4, 400), CategoryTotal(5, 350), CategoryTotal(6, 250)
+        )
         val result = CategoryBreakdownCalculator.calculate(totals)
 
-        assertEquals(11, result.legend.size) // 10 categories + "Other"
-        assertTrue(result.legend.last().isOther)
-        assertEquals(result.totalMinor, result.legend.sumOf { it.amountMinor }) // adds up
+        assertEquals(result.totalMinor, result.slices.sumOf { it.amountMinor })
+        assertTrue(result.slices.last().isOther) // 4, 5 and 6 merged
+        assertEquals(4, result.slices.size)
     }
 
     @Test

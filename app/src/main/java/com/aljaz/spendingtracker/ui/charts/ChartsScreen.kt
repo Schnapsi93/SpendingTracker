@@ -4,11 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -28,21 +30,18 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.aljaz.spendingtracker.core.MoneyFormatter
 import com.aljaz.spendingtracker.domain.charts.ChartSlice
+import com.aljaz.spendingtracker.domain.charts.CategoryBreakdownCalculator
 import com.aljaz.spendingtracker.ui.components.ColorDot
 import com.aljaz.spendingtracker.ui.components.PeriodHeader
-import kotlin.math.roundToInt
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 
 /** Currency used for the totals until multi-currency support exists. */
 private const val DISPLAY_CURRENCY = "EUR"
 
-/** The two chart views. */
-private enum class ChartTab { CATEGORIES, CASH_FLOW }
-
 /**
- * Charts for one period: spending by category, and (next step) cash flow.
+ * Charts for one period on a single screen:
+ * the pie of expenses by category with its list on top, the cash flow below.
  *
  * @param onBackClick called when the user wants to return to Home
  * @param viewModel provided by Hilt automatically
@@ -54,32 +53,19 @@ fun ChartsScreen(
     viewModel: ChartsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
-    var tab by rememberSaveable { mutableStateOf(ChartTab.CATEGORIES) }
 
     Scaffold(modifier = modifier) { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
+                // Scrolls only if the exact amounts are opened or the screen is very small.
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBackClick) { Text("< Back") }
                 Text(text = "Charts", style = MaterialTheme.typography.titleLarge)
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = tab == ChartTab.CATEGORIES,
-                    onClick = { tab = ChartTab.CATEGORIES },
-                    label = { Text("By category") }
-                )
-                FilterChip(
-                    selected = tab == ChartTab.CASH_FLOW,
-                    onClick = { tab = ChartTab.CASH_FLOW },
-                    label = { Text("Cash flow") }
-                )
             }
 
             PeriodHeader(
@@ -91,20 +77,29 @@ fun ChartsScreen(
                 onMonthSelected = viewModel::onMonthSelected
             )
 
-            when (tab) {
-                ChartTab.CATEGORIES -> CategoryChart(state)
-                ChartTab.CASH_FLOW -> CashFlowSection(state)
+            if (!state.isLoading) {
+                CategorySection(state)
+                HorizontalDivider()
+                CashFlowSection(state)
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
 }
 
-/** Pie chart of the period's expenses with the list of categories next to it. */
+/**
+ * Pie chart of the period's expenses with the list of categories to its right.
+ * The list shows exactly the pie's slices, including the merged "Other".
+ */
 @Composable
-private fun CategoryChart(state: ChartsUiState) {
+private fun CategorySection(state: ChartsUiState) {
     val breakdown = state.breakdown
 
-    if (state.isLoading) return
+    Text(
+        text = "Expenses: ${MoneyFormatter.format(breakdown.totalMinor, DISPLAY_CURRENCY)}",
+        style = MaterialTheme.typography.titleMedium
+    )
+
     if (breakdown.totalMinor == 0L) {
         Text(text = "No expenses in this period.", style = MaterialTheme.typography.bodyLarge)
         return
@@ -126,31 +121,27 @@ private fun CategoryChart(state: ChartsUiState) {
         else -> state.categoriesById[slice.categoryId]?.name ?: "Unknown"
     }
 
-    Text(
-        text = "Expenses: ${MoneyFormatter.format(breakdown.totalMinor, DISPLAY_CURRENCY)}",
-        style = MaterialTheme.typography.titleMedium
-    )
-
     Row(verticalAlignment = Alignment.CenterVertically) {
         PieChart(
             slices = breakdown.slices.map { slice ->
                 PieSlice(
                     fraction = slice.share.toFloat(),
                     color = colorOf(slice),
-                    // Very thin slices get no label; the list shows their percentage.
-                    label = percentText(slice.share).takeIf { slice.share >= 0.05 }
+                    // Thin slices get no label; the list next to the pie shows their percentage.
+                    label = percentText(slice.share)
+                        .takeIf { slice.share >= CategoryBreakdownCalculator.MIN_SLICE_SHARE }
                 )
             },
             modifier = Modifier.weight(0.45f)
         )
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(
             modifier = Modifier.weight(0.55f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            breakdown.legend.forEach { slice ->
+            breakdown.slices.forEach { slice ->
                 LegendItem(
                     color = colorOf(slice),
                     name = nameOf(slice),
@@ -162,7 +153,7 @@ private fun CategoryChart(state: ChartsUiState) {
     }
 }
 
-/** One list entry: dot and name, then amount and percentage below. */
+/** One list entry: dot and name, then amount and percentage below in smaller text. */
 @Composable
 private fun LegendItem(color: Color, name: String, amount: String, percent: String) {
     Row(verticalAlignment = Alignment.Top) {
@@ -175,7 +166,11 @@ private fun LegendItem(color: Color, name: String, amount: String, percent: Stri
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(text = "$amount · $percent", style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = "$amount · $percent",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -186,14 +181,16 @@ private fun percentText(share: Double): String {
     return if (percent == 0 && share > 0) "<1 %" else "$percent %"
 }
 
-
 /**
- * Cash flow of the 12 periods ending with the selected one: the line
- * chart, its legend, and a table with the exact amounts.
+ * Cash flow of the 12 periods ending with the selected one: the line chart and
+ * its legend. The table with exact amounts is folded away until it is asked for,
+ * so both charts fit on one screen.
  */
 @Composable
 private fun CashFlowSection(state: ChartsUiState) {
-    if (state.isLoading) return
+    var showAmounts by rememberSaveable { mutableStateOf(false) }
+
+    Text(text = "Cash flow · last 12 months", style = MaterialTheme.typography.titleMedium)
 
     val points = state.cashFlow
     if (points.all { it.incomeMinor == 0L && it.expenseMinor == 0L }) {
@@ -204,33 +201,48 @@ private fun CashFlowSection(state: ChartsUiState) {
         return
     }
 
-    Text(text = "Last 12 months", style = MaterialTheme.typography.titleMedium)
-
     CashFlowChart(
         points = points,
         modifier = Modifier
             .fillMaxWidth()
-            .height(240.dp)
+            .height(220.dp)
     )
 
-    // Legend
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            ColorDot(colorArgb = CashFlowColors.Income.toArgb())
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(text = "Income", style = MaterialTheme.typography.bodyMedium)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            ColorDot(colorArgb = CashFlowColors.Expense.toArgb())
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(text = "Expenses", style = MaterialTheme.typography.bodyMedium)
+    // Legend on the left, the button for the exact amounts on the right.
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        LineLegend(color = CashFlowColors.Income, text = "Income")
+        Spacer(modifier = Modifier.width(16.dp))
+        LineLegend(color = CashFlowColors.Expense, text = "Expenses")
+        Spacer(modifier = Modifier.weight(1f))
+        TextButton(onClick = { showAmounts = !showAmounts }) {
+            Text(if (showAmounts) "Hide amounts" else "Show amounts")
         }
     }
 
-    // Exact amounts, newest first.
+    if (showAmounts) {
+        CashFlowTable(state)
+    }
+}
+
+/** A colored dot with the name of a chart line. */
+@Composable
+private fun LineLegend(color: Color, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        ColorDot(colorArgb = color.toArgb())
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(text = text, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** Exact income and expenses per period, newest first. */
+@Composable
+private fun CashFlowTable(state: ChartsUiState) {
     val monthFormat = DateTimeFormatter.ofPattern("LLL yyyy")
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        points.asReversed().forEach { point ->
+        state.cashFlow.asReversed().forEach { point ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
