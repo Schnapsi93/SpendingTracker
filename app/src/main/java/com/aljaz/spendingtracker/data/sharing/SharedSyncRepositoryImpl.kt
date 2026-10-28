@@ -39,6 +39,9 @@ import javax.inject.Singleton
  * 3. Upload deletions (tombstones) of transactions deleted on this phone.
  * 4. Download every change in the household since the last run into the
  *    local mirror ("shared_expenses").
+ * 5. Remove mirrored expenses the server no longer has at all (records
+ *    deleted completely, e.g. in the PocketBase admin, never show up as
+ *    a change in step 4).
  *
  * Only the payer may change an expense on the server, so the two phones
  * can never overwrite each other's data.
@@ -133,7 +136,10 @@ class SharedSyncRepositoryImpl @Inject constructor(
         val deletions = uploadDeletions(account, token)
         if (deletions is AppResult.Error) return deletions
 
-        return downloadChanges(account, token)
+        val download = downloadChanges(account, token)
+        if (download is AppResult.Error) return download
+
+        return removeVanished(account, token)
     }
 
     /** Step 1: logs in with the saved password and returns a fresh token. */
@@ -230,6 +236,26 @@ class SharedSyncRepositoryImpl @Inject constructor(
 
         // Saved only after everything arrived, so an interrupted run starts over safely.
         newest?.let { statusStore.saveCursor(it) }
+        return AppResult.Success(Unit)
+    }
+
+    /**
+     * Step 5: removes mirrored expenses that no longer exist on the server
+     * (or are deleted there). Only removes, never adds, so an expense created
+     * in the meantime is simply picked up by the next run's step 4.
+     */
+    private suspend fun removeVanished(account: SharedAccount, token: String): AppResult<Unit> {
+        val onServer = when (
+            val result = client.fetchActiveExpenseUuids(account.serverUrl, token, account.householdId)
+        ) {
+            is AppResult.Error -> return result
+            is AppResult.Success -> result.data
+        }
+
+        sharedExpenseDao.getAllUuids()
+            .filterNot { it in onServer }
+            .forEach { sharedExpenseDao.deleteByUuid(it) }
+
         return AppResult.Success(Unit)
     }
 

@@ -54,6 +54,7 @@ private const val DISPLAY_CURRENCY = "EUR"
  * @param onReviewClick called when the user opens the review queue
  * @param onSearchClick called when the user opens the search
  * @param onChartsClick called with the shown period when the user opens the charts
+ * @param onSharedClick called with the shown period when the user opens the shared expenses
  * @param viewModel provided by Hilt automatically
  */
 @Composable
@@ -65,6 +66,7 @@ fun HomeScreen(
     onReviewClick: () -> Unit,
     onSearchClick: () -> Unit,
     onChartsClick: (YearMonth) -> Unit,
+    onSharedClick: (YearMonth) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -128,7 +130,8 @@ fun HomeScreen(
                     SummaryCard(
                         summary = state.summary,
                         carryOver = state.carryOver,
-                        onChartsClick = { onChartsClick(state.month) }
+                        onChartsClick = { onChartsClick(state.month) },
+                        onSharedClick = { onSharedClick(state.month) }
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -179,12 +182,14 @@ fun HomeScreen(
 /**
  * Card with the period's totals. With carry-over on, the balance left
  * from earlier periods is shown first and included in the balance.
+ * Links to the shared expenses and the charts for the same period.
  */
 @Composable
 private fun SummaryCard(
     summary: MonthSummary,
     carryOver: Boolean,
-    onChartsClick: () -> Unit
+    onChartsClick: () -> Unit,
+    onSharedClick: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -203,6 +208,7 @@ private fun SummaryCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                TextButton(onClick = onSharedClick) { Text("Shared >") }
                 TextButton(onClick = onChartsClick) { Text("Charts >") }
             }
         }

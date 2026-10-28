@@ -18,6 +18,10 @@ interface SharedExpenseDao {
     @Query("DELETE FROM shared_expenses WHERE uuid = :uuid")
     suspend fun deleteByUuid(uuid: String)
 
+    /** The uuids of every mirrored expense; used to find ones the server no longer has. */
+    @Query("SELECT uuid FROM shared_expenses")
+    suspend fun getAllUuids(): List<String>
+
     /**
      * Streams the shared expenses within a time range, newest first.
      *
@@ -30,6 +34,10 @@ interface SharedExpenseDao {
                 "ORDER BY date DESC"
     )
     fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<SharedExpenseEntity>>
+
+    /** Streams every shared expense, newest first. Used for the all-time balance. */
+    @Query("SELECT * FROM shared_expenses ORDER BY date DESC")
+    fun observeAll(): Flow<List<SharedExpenseEntity>>
 
     /** Empties the mirror, e.g. on logout. */
     @Query("DELETE FROM shared_expenses")

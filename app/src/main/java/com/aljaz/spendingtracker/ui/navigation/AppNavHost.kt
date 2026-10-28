@@ -16,6 +16,7 @@ import com.aljaz.spendingtracker.ui.review.ReviewScreen
 import com.aljaz.spendingtracker.ui.rules.RulesScreen
 import com.aljaz.spendingtracker.ui.search.SearchScreen
 import com.aljaz.spendingtracker.ui.settings.SettingsScreen
+import com.aljaz.spendingtracker.ui.shared.SharedSummaryScreen
 import com.aljaz.spendingtracker.ui.sharing.SharedAccountScreen
 import com.aljaz.spendingtracker.ui.transactions.AddTransactionScreen
 
@@ -63,6 +64,9 @@ fun AppNavHost(
                 },
                 onChartsClick = { month ->
                     navController.navigate(Screen.Charts.createRoute(month))
+                },
+                onSharedClick = { month ->
+                    navController.navigate(Screen.SharedSummary.createRoute(month))
                 }
             )
         }
@@ -99,6 +103,20 @@ fun AppNavHost(
 
         composable(Screen.SharedAccount.route) {
             SharedAccountScreen(onBackClick = { navController.popBackStack() })
+        }
+
+        // The month argument is optional: "shared_summary" alone opens the current period.
+        composable(
+            route = Screen.SharedSummary.route,
+            arguments = listOf(
+                navArgument(SHARED_MONTH_ARG) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
+            SharedSummaryScreen(onBackClick = { navController.popBackStack() })
         }
 
         composable(Screen.Review.route) {

@@ -10,6 +10,9 @@ const val TRANSACTION_ID_ARG = "transactionId"
 /** Name of the optional navigation argument with the period to show, e.g. "2026-10". */
 const val CHARTS_MONTH_ARG = "month"
 
+/** Name of the optional navigation argument with the period the shared summary opens on. */
+const val SHARED_MONTH_ARG = "month"
+
 /**
  * Every screen in the app, with its navigation route.
  *
@@ -62,4 +65,11 @@ sealed class Screen(val route: String) {
 
     /** Login to the shared expenses server; opened from Settings. */
     data object SharedAccount : Screen("shared_account")
+
+    /** Shared expenses of one period and who owes whom; opens on the period passed in. */
+    data object SharedSummary : Screen("shared_summary?$SHARED_MONTH_ARG={$SHARED_MONTH_ARG}") {
+
+        /** Builds the route for a period, e.g. "shared_summary?month=2026-10". */
+        fun createRoute(month: YearMonth) = "shared_summary?$SHARED_MONTH_ARG=$month"
+    }
 }

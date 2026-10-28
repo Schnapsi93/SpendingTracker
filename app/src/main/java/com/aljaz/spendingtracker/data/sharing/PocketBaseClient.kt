@@ -264,6 +264,57 @@ class PocketBaseClient @Inject constructor() {
         }
     }
 
+    /**
+     * The uuids of every shared expense in the household that currently exists
+     * and isn't deleted. Only the uuid is downloaded, so this stays small.
+     *
+     * Used to notice records removed completely (e.g. in the PocketBase admin),
+     * which never show up as a "change".
+     */
+    suspend fun fetchActiveExpenseUuids(
+        serverUrl: String,
+        token: String,
+        householdId: String
+    ): AppResult<Set<String>> {
+        val uuids = mutableSetOf<String>()
+        var page = 1
+        do {
+            val result = fetchActiveUuidPage(serverUrl, token, householdId, page)
+            val (items, totalPages) = when (result) {
+                is AppResult.Error -> return result
+                is AppResult.Success -> result.data
+            }
+            uuids += items
+            page++
+        } while (page <= totalPages)
+        return AppResult.Success(uuids)
+    }
+
+    /** One page for [fetchActiveExpenseUuids]: the uuids and the total number of pages. */
+    private suspend fun fetchActiveUuidPage(
+        serverUrl: String,
+        token: String,
+        householdId: String,
+        page: Int
+    ): AppResult<Pair<List<String>, Int>> = withContext(Dispatchers.IO) {
+        safely {
+            val url = apiUrl(serverUrl, EXPENSES).newBuilder()
+                .addQueryParameter("filter", "household = \"$householdId\" && deleted = false")
+                .addQueryParameter("fields", "uuid")
+                .addQueryParameter("perPage", UUID_PAGE_SIZE.toString())
+                .addQueryParameter("page", page.toString())
+                .build()
+
+            call(authorized(url, token).get().build()) { json ->
+                val items = json.getJSONArray("items")
+                val uuids = (0 until items.length()).map { i ->
+                    items.getJSONObject(i).getString("uuid")
+                }
+                uuids to json.getInt("totalPages")
+            }
+        }
+    }
+
     // ---------- JSON conversion ----------
 
     private fun ExpenseUpload.toJson(): JSONObject = JSONObject()
@@ -397,6 +448,7 @@ class PocketBaseClient @Inject constructor() {
     companion object {
         private const val EXPENSES = "collections/shared_expenses/records"
         private const val PAGE_SIZE = 200
+        private const val UUID_PAGE_SIZE = 500
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
         /** PocketBase's date format, always in UTC: "2026-10-28 16:40:12.345Z". */
