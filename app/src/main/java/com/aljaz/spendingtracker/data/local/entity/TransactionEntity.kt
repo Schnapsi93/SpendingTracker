@@ -5,6 +5,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.aljaz.spendingtracker.domain.model.TransactionSource
 import com.aljaz.spendingtracker.domain.model.TransactionType
+import com.aljaz.spendingtracker.domain.model.SyncState
 
 /**
  * One row of the "transactions" table: a single income or expense.
@@ -61,5 +62,23 @@ data class TransactionEntity(
 
 
     /** Repeating series this entry belongs to, or null for a one-off. */
-    val recurringId: Long? = null
+    val recurringId: Long? = null,
+
+    /** Global ID, created on the phone, unique index. Existing rows get one in the migration. */
+    val uuid: String,
+
+    /** Whether this expense is split with your partner. */
+    val isShared: Boolean = false,
+
+    /** Your share when shared, e.g. 50. Null when not shared. */
+    val payerSharePercent: Int? = null,
+
+    /** Tells the sync job what still has to be uploaded. */
+    val syncState: SyncState = SyncState.LOCAL_ONLY,
+
+    /** Last edit time, used for conflict resolution. */
+    val updatedAt: Long
+
+
+
 )
