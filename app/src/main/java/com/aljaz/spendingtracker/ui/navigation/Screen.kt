@@ -59,6 +59,7 @@ sealed class Screen(val route: String) {
 
     /** First-launch setup guide; can be reopened from Settings. */
     data object Onboarding : Screen("onboarding")
+
+    /** Login to the shared expenses server; opened from Settings. */
+    data object SharedAccount : Screen("shared_account")
 }
-
-

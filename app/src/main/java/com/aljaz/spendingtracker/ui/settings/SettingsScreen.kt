@@ -51,12 +51,14 @@ import com.aljaz.spendingtracker.ui.components.rememberNotificationAccess
  *
  * @param onBackClick called when the user wants to return to Home
  * @param onShowSetupGuideClick called when the user wants to see the setup guide again
+ * @param onSharedAccountClick called when the user wants to open the shared expenses login
  * @param viewModel provided by Hilt automatically
  */
 @Composable
 fun SettingsScreen(
     onBackClick: () -> Unit,
     onShowSetupGuideClick: () -> Unit,
+    onSharedAccountClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -147,6 +149,9 @@ fun SettingsScreen(
                 onToggle = viewModel::onNotificationsToggle
             )
 
+            // ----- Shared expenses -----
+            SharedExpensesCard(onOpenClick = onSharedAccountClick)
+
             // ----- Nextcloud backup -----
             CloudBackupCard(
                 form = state.cloud,
@@ -158,14 +163,32 @@ fun SettingsScreen(
                 onBackupNow = viewModel::onBackupNowClick
             )
 
-
-
-
-
             // ----- Help -----
             TextButton(onClick = onShowSetupGuideClick) {
                 Text("Show setup guide")
             }
+        }
+    }
+}
+
+/**
+ * Entry point to the shared expenses account (login to the PocketBase server).
+ * The account itself is managed on its own screen.
+ */
+@Composable
+private fun SharedExpensesCard(onOpenClick: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(text = "Shared expenses", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Log in to the shared server to split expenses with your partner. " +
+                        "Only expenses in split categories are ever shared.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            OutlinedButton(onClick = onOpenClick) { Text("Shared account") }
         }
     }
 }
@@ -469,10 +492,10 @@ private fun PeriodCard(
 }
 
 /**
-* Banking apps card: notification access status and a shortcut to grant it.
-* Needed for banks that report card payments through their app instead of
-* SMS (currently NLB Pay). Same layout as [BankSmsCard].
-*/
+ * Banking apps card: notification access status and a shortcut to grant it.
+ * Needed for banks that report card payments through their app instead of
+ * SMS (currently NLB Pay). Same layout as [BankSmsCard].
+ */
 
 @Composable
 private fun BankAppsCard() {

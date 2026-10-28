@@ -1,6 +1,7 @@
 package com.aljaz.spendingtracker.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -8,15 +9,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.aljaz.spendingtracker.ui.categories.CategoriesScreen
+import com.aljaz.spendingtracker.ui.charts.ChartsScreen
 import com.aljaz.spendingtracker.ui.home.HomeScreen
-import com.aljaz.spendingtracker.ui.transactions.AddTransactionScreen
-import com.aljaz.spendingtracker.ui.settings.SettingsScreen
+import com.aljaz.spendingtracker.ui.onboarding.OnboardingScreen
 import com.aljaz.spendingtracker.ui.review.ReviewScreen
 import com.aljaz.spendingtracker.ui.rules.RulesScreen
 import com.aljaz.spendingtracker.ui.search.SearchScreen
-import androidx.compose.runtime.LaunchedEffect
-import com.aljaz.spendingtracker.ui.charts.ChartsScreen
-import com.aljaz.spendingtracker.ui.onboarding.OnboardingScreen
+import com.aljaz.spendingtracker.ui.settings.SettingsScreen
+import com.aljaz.spendingtracker.ui.sharing.SharedAccountScreen
+import com.aljaz.spendingtracker.ui.transactions.AddTransactionScreen
 
 /**
  * The app's navigation graph: which screen is shown for which route,
@@ -63,7 +64,6 @@ fun AppNavHost(
                 onChartsClick = { month ->
                     navController.navigate(Screen.Charts.createRoute(month))
                 }
-
             )
         }
 
@@ -92,8 +92,13 @@ fun AppNavHost(
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onBackClick = { navController.popBackStack() },
-                onShowSetupGuideClick = { navController.navigate(Screen.Onboarding.route) }
+                onShowSetupGuideClick = { navController.navigate(Screen.Onboarding.route) },
+                onSharedAccountClick = { navController.navigate(Screen.SharedAccount.route) }
             )
+        }
+
+        composable(Screen.SharedAccount.route) {
+            SharedAccountScreen(onBackClick = { navController.popBackStack() })
         }
 
         composable(Screen.Review.route) {
@@ -105,11 +110,9 @@ fun AppNavHost(
             )
         }
 
-
         composable(Screen.Rules.route) {
             RulesScreen(onBackClick = { navController.popBackStack() })
         }
-
 
         composable(Screen.Search.route) {
             SearchScreen(
@@ -119,7 +122,6 @@ fun AppNavHost(
                 }
             )
         }
-
 
         // The month argument is optional: "charts" alone opens the current period.
         composable(
