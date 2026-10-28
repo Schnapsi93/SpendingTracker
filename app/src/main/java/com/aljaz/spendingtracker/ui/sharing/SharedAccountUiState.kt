@@ -1,6 +1,7 @@
 package com.aljaz.spendingtracker.ui.sharing
 
 import com.aljaz.spendingtracker.domain.sharing.SharedAccount
+import com.aljaz.spendingtracker.domain.sharing.SyncStatus
 
 /**
  * Everything the Shared account screen shows at one moment.
@@ -10,6 +11,7 @@ import com.aljaz.spendingtracker.domain.sharing.SharedAccount
  * @property isWorking true while logging in; the button is disabled meanwhile
  * @property errorMessage why the last login failed, or null
  * @property showLogOutConfirm true while the "Log out?" dialog is open
+ * @property syncStatus progress and result of syncing
  */
 data class SharedAccountUiState(
     val account: SharedAccount? = null,
@@ -18,5 +20,6 @@ data class SharedAccountUiState(
     val password: String = "",
     val isWorking: Boolean = false,
     val errorMessage: String? = null,
-    val showLogOutConfirm: Boolean = false
+    val showLogOutConfirm: Boolean = false,
+    val syncStatus: SyncStatus = SyncStatus()
 )

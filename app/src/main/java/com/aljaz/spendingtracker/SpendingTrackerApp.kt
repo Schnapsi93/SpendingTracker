@@ -1,16 +1,17 @@
 package com.aljaz.spendingtracker
 
 import android.app.Application
+import com.aljaz.spendingtracker.automation.notifications.AndroidTransactionNotifier
+import com.aljaz.spendingtracker.data.backup.BackupScheduler
+import com.aljaz.spendingtracker.domain.sharing.SharedSyncRepository
 import com.aljaz.spendingtracker.domain.usecase.EnsureDefaultCategoriesUseCase
+import com.aljaz.spendingtracker.domain.usecase.EnsureStarterRulesUseCase
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.aljaz.spendingtracker.data.backup.BackupScheduler
-import com.aljaz.spendingtracker.domain.usecase.EnsureStarterRulesUseCase
-import com.aljaz.spendingtracker.automation.notifications.AndroidTransactionNotifier
 
 /**
  * Application entry point.
@@ -29,6 +30,10 @@ class SpendingTrackerApp : Application() {
     @Inject
     lateinit var ensureStarterRules: EnsureStarterRulesUseCase
 
+    /** Filled in by Hilt during super.onCreate(). */
+    @Inject
+    lateinit var sharedSync: SharedSyncRepository
+
     /**
      * Scope for one-off startup work that should not block the UI.
      * SupervisorJob keeps one failing task from cancelling the others.
@@ -44,6 +49,6 @@ class SpendingTrackerApp : Application() {
         }
         BackupScheduler.schedule(this) // daily check for the monthly cloud backup
         AndroidTransactionNotifier.createChannel(this) // "New transactions" notifications
-
+        sharedSync.startAutoSync(appScope) // shared expenses: hourly, on start and after changes
     }
 }

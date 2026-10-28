@@ -5,7 +5,9 @@ import androidx.room.Room
 import com.aljaz.spendingtracker.data.local.AppDatabase
 import com.aljaz.spendingtracker.data.local.dao.CategoryDao
 import com.aljaz.spendingtracker.data.local.dao.CategoryRuleDao
+import com.aljaz.spendingtracker.data.local.dao.PendingDeletionDao
 import com.aljaz.spendingtracker.data.local.dao.RecurringTransactionDao
+import com.aljaz.spendingtracker.data.local.dao.SharedExpenseDao
 import com.aljaz.spendingtracker.data.local.dao.TransactionDao
 import com.aljaz.spendingtracker.data.local.dao.UnrecognizedMessageDao
 import dagger.Module
@@ -64,4 +66,14 @@ object DatabaseModule {
     @Provides
     fun provideRecurringTransactionDao(database: AppDatabase): RecurringTransactionDao =
         database.recurringTransactionDao()
+
+    /** Exposes the shared expense mirror DAO so it can be injected directly. */
+    @Provides
+    fun provideSharedExpenseDao(database: AppDatabase): SharedExpenseDao =
+        database.sharedExpenseDao()
+
+    /** Exposes the pending deletion DAO so it can be injected directly. */
+    @Provides
+    fun providePendingDeletionDao(database: AppDatabase): PendingDeletionDao =
+        database.pendingDeletionDao()
 }

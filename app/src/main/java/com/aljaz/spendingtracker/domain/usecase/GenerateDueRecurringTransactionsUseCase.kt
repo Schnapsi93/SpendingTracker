@@ -1,5 +1,6 @@
 package com.aljaz.spendingtracker.domain.usecase
 
+import com.aljaz.spendingtracker.domain.repository.CategoryRepository
 import com.aljaz.spendingtracker.domain.repository.RecurringTransactionRepository
 import com.aljaz.spendingtracker.domain.repository.TransactionRepository
 import java.time.ZoneId
@@ -11,10 +12,14 @@ import javax.inject.Inject
  * Safe to run any number of times: each occurrence has its own dedupe
  * hash, and the template remembers how far it got. If the phone was off
  * for a while, all missed occurrences are caught up in one run.
+ *
+ * Entries in a split category are shared automatically, like a manual
+ * entry in that category would be.
  */
 class GenerateDueRecurringTransactionsUseCase @Inject constructor(
     private val recurringRepository: RecurringTransactionRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val categoryRepository: CategoryRepository
 ) {
 
     /**
@@ -27,12 +32,17 @@ class GenerateDueRecurringTransactionsUseCase @Inject constructor(
 
         for (template in recurringRepository.getAll()) {
             var count = template.generatedCount
+            val category = template.categoryId?.let { categoryRepository.getById(it) }
 
             // Safety cap, so a broken start date can never loop for ages.
             var guard = 0
             while (template.occurrenceAt(count, zone) <= now && guard < MAX_PER_RUN) {
+                val transaction = template.toTransaction(count, zone)
+                    .withSplitDefaults(category)
+                    .withSyncStateForSave()
+
                 // A null result means it already exists; just move on.
-                if (transactionRepository.add(template.toTransaction(count, zone)) != null) {
+                if (transactionRepository.add(transaction) != null) {
                     created++
                 }
                 count++

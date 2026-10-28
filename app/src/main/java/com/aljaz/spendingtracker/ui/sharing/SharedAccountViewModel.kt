@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aljaz.spendingtracker.core.AppResult
 import com.aljaz.spendingtracker.domain.sharing.SharedAccountRepository
+import com.aljaz.spendingtracker.domain.sharing.SharedSyncRepository
 import com.aljaz.spendingtracker.domain.usecase.LogInSharedAccountUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,11 +16,12 @@ import javax.inject.Inject
 
 /**
  * Logic behind the Shared account screen: the login form, the account
- * summary, and logging out.
+ * summary with sync status, and logging out.
  */
 @HiltViewModel
 class SharedAccountViewModel @Inject constructor(
     private val repository: SharedAccountRepository,
+    private val sync: SharedSyncRepository,
     private val logIn: LogInSharedAccountUseCase
 ) : ViewModel() {
 
@@ -31,6 +33,12 @@ class SharedAccountViewModel @Inject constructor(
         viewModelScope.launch {
             repository.account.collect { account ->
                 _uiState.update { it.copy(account = account) }
+            }
+        }
+        // Keeps "Last synced" and errors up to date.
+        viewModelScope.launch {
+            sync.status.collect { status ->
+                _uiState.update { it.copy(syncStatus = status) }
             }
         }
     }
@@ -59,6 +67,12 @@ class SharedAccountViewModel @Inject constructor(
                     _uiState.update { it.copy(isWorking = false, errorMessage = result.message) }
             }
         }
+    }
+
+    /** Runs a sync right away; the status line shows progress and the result. */
+    fun onSyncNowClick() {
+        if (_uiState.value.syncStatus.isSyncing) return
+        viewModelScope.launch { sync.syncNow() }
     }
 
     /** Asks for confirmation first. */

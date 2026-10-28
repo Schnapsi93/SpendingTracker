@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -27,10 +28,16 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.aljaz.spendingtracker.domain.sharing.SharedAccount
+import com.aljaz.spendingtracker.domain.sharing.SyncStatus
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /**
  * Shared account screen: a login form when logged out, and a summary
- * (user, household, partner) with a log-out button when logged in.
+ * (user, household, partner, sync status) with sync and log-out buttons
+ * when logged in.
  *
  * @param onBackClick called when the user wants to return to Settings
  * @param viewModel provided by Hilt automatically
@@ -66,7 +73,12 @@ fun SharedAccountScreen(
                     onLogInClick = viewModel::onLogInClick
                 )
             } else {
-                AccountCard(account = account, onLogOutClick = viewModel::onLogOutClick)
+                AccountCard(
+                    account = account,
+                    syncStatus = state.syncStatus,
+                    onSyncNowClick = viewModel::onSyncNowClick,
+                    onLogOutClick = viewModel::onLogOutClick
+                )
             }
         }
     }
@@ -76,7 +88,10 @@ fun SharedAccountScreen(
             onDismissRequest = viewModel::onLogOutDismiss,
             title = { Text("Log out of the shared account?") },
             text = {
-                Text("Your own transactions stay on this phone. You can log in again any time.")
+                Text(
+                    "Your own transactions stay on this phone. Shared expenses downloaded " +
+                            "from the server are removed here, and come back when you log in again."
+                )
             },
             confirmButton = {
                 TextButton(onClick = viewModel::onLogOutConfirm) { Text("Log out") }
@@ -150,9 +165,14 @@ private fun LogInCard(
     }
 }
 
-/** Who is logged in, which household, and who the partner is. */
+/** Who is logged in, which household, the partner, and how syncing goes. */
 @Composable
-private fun AccountCard(account: SharedAccount, onLogOutClick: () -> Unit) {
+private fun AccountCard(
+    account: SharedAccount,
+    syncStatus: SyncStatus,
+    onSyncNowClick: () -> Unit,
+    onLogOutClick: () -> Unit
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -183,7 +203,41 @@ private fun AccountCard(account: SharedAccount, onLogOutClick: () -> Unit) {
             }
             Text(text = "Server: ${account.serverUrl}", style = MaterialTheme.typography.bodySmall)
 
-            OutlinedButton(onClick = onLogOutClick) { Text("Log out") }
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            SyncStatusText(syncStatus)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onSyncNowClick, enabled = !syncStatus.isSyncing) {
+                    Text(if (syncStatus.isSyncing) "Syncing…" else "Sync now")
+                }
+                OutlinedButton(onClick = onLogOutClick) { Text("Log out") }
+            }
         }
+    }
+}
+
+/** "Last synced: …", and the last error in red if the latest attempt failed. */
+@Composable
+private fun SyncStatusText(status: SyncStatus) {
+    val lastSuccess = status.lastSuccessAt?.let { millis ->
+        Instant.ofEpochMilli(millis)
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))
+    }
+
+    Text(
+        text = when {
+            status.isSyncing -> "Syncing…"
+            lastSuccess != null -> "Last synced: $lastSuccess"
+            else -> "Not synced yet"
+        },
+        style = MaterialTheme.typography.bodyMedium
+    )
+    status.lastError?.let { error ->
+        Text(
+            text = "Last attempt failed: $error",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error
+        )
     }
 }

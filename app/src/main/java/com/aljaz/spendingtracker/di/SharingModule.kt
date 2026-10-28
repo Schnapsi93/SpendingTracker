@@ -1,7 +1,9 @@
 package com.aljaz.spendingtracker.di
 
 import com.aljaz.spendingtracker.data.sharing.SharedAccountRepositoryImpl
+import com.aljaz.spendingtracker.data.sharing.SharedSyncRepositoryImpl
 import com.aljaz.spendingtracker.domain.sharing.SharedAccountRepository
+import com.aljaz.spendingtracker.domain.sharing.SharedSyncRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -18,4 +20,10 @@ abstract class SharingModule {
     abstract fun bindSharedAccountRepository(
         impl: SharedAccountRepositoryImpl
     ): SharedAccountRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSharedSyncRepository(
+        impl: SharedSyncRepositoryImpl
+    ): SharedSyncRepository
 }

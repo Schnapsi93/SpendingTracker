@@ -3,6 +3,7 @@ package com.aljaz.spendingtracker.data.sharing
 import com.aljaz.spendingtracker.core.AppResult
 import com.aljaz.spendingtracker.domain.sharing.SharedAccount
 import com.aljaz.spendingtracker.domain.sharing.SharedAccountRepository
+import com.aljaz.spendingtracker.domain.sharing.SharedSyncRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
@@ -16,7 +17,8 @@ import javax.inject.Singleton
 @Singleton
 class SharedAccountRepositoryImpl @Inject constructor(
     private val client: PocketBaseClient,
-    private val store: SharedAccountStore
+    private val store: SharedAccountStore,
+    private val sync: SharedSyncRepository
 ) : SharedAccountRepository {
 
     override val account: StateFlow<SharedAccount?> = store.account
@@ -57,12 +59,16 @@ class SharedAccountRepositoryImpl @Inject constructor(
             partnerName = partner?.displayName
         )
 
-        // 4. Remember it (encryption and file access happen off the main thread).
+        // 4. Start from an empty mirror (it could belong to another account),
+        //    remember the login, and download everything.
+        sync.resetDownloads()
         withContext(Dispatchers.IO) { store.save(account, auth.token, password) }
+        sync.requestSync()
         return AppResult.Success(account)
     }
 
-    override suspend fun logOut() = withContext(Dispatchers.IO) {
-        store.clear()
+    override suspend fun logOut() {
+        sync.clearLocalData()
+        withContext(Dispatchers.IO) { store.clear() }
     }
 }

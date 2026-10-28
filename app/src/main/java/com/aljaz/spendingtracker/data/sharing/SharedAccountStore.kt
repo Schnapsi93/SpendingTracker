@@ -14,8 +14,8 @@ import javax.inject.Singleton
  * Keeps the shared account in private app preferences.
  *
  * The login token and the password are stored only in encrypted form
- * (see [SecretCipher]). The password is kept so the app can log in again
- * by itself when the token expires (PocketBase tokens last 7 days).
+ * (see [SecretCipher]). The password is kept so the sync can log in again
+ * by itself (PocketBase tokens expire after 7 days).
  */
 @Singleton
 class SharedAccountStore @Inject constructor(
@@ -46,6 +46,11 @@ class SharedAccountStore @Inject constructor(
             putString(KEY_PASSWORD, cipher.encrypt(password))
         }.apply()
         _account.value = account
+    }
+
+    /** Replaces the token after the sync logged in again. */
+    fun updateToken(token: String) {
+        prefs.edit().putString(KEY_TOKEN, cipher.encrypt(token)).apply()
     }
 
     /** The current login token, or null if missing or it can't be decrypted. */

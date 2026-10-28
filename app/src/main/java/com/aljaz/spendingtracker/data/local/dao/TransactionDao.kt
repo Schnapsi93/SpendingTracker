@@ -94,4 +94,32 @@ interface TransactionDao {
     /** Unlinks every entry from a series; used when the series is stopped. */
     @Query("UPDATE transactions SET recurringId = NULL WHERE recurringId = :recurringId")
     suspend fun clearRecurring(recurringId: Long)
+
+
+    // ---------- Sync ----------
+
+    /**
+     * Confirmed transactions whose latest version still has to be uploaded.
+     * Unconfirmed ones wait in the review queue and are never shared.
+     */
+    @Query("SELECT * FROM transactions WHERE syncState = 'PENDING' AND reviewed = 1")
+    suspend fun getPendingSync(): List<TransactionEntity>
+
+    /** How many confirmed transactions wait for upload; updates automatically. */
+    @Query("SELECT COUNT(*) FROM transactions WHERE syncState = 'PENDING' AND reviewed = 1")
+    fun observePendingSyncCount(): Flow<Int>
+
+    /**
+     * Records the result of an upload, but only if the row wasn't edited
+     * meanwhile (same [updatedAt]). An edit made during the upload keeps it
+     * PENDING, so the newer version is uploaded on the next run.
+     *
+     * @param state the new state's name, e.g. "SYNCED"
+     * @return 1 if the row was updated, 0 if it changed in the meantime
+     */
+    @Query(
+        "UPDATE transactions SET syncState = :state " +
+                "WHERE id = :id AND updatedAt = :updatedAt AND syncState = 'PENDING'"
+    )
+    suspend fun markSyncState(id: Long, updatedAt: Long, state: String): Int
 }
