@@ -26,7 +26,7 @@ class AddTransactionUseCase @Inject constructor(
             is AppResult.Success -> check.data
         }
 
-        val newId = repository.add(cleaned)
+        val newId = repository.add(cleaned.withSyncStateForSave())
             ?: return AppResult.Error("This transaction already exists.")
         return AppResult.Success(newId)
     }

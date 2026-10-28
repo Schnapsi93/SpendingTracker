@@ -98,7 +98,12 @@ class AddTransactionViewModel @Inject constructor(
                     timestamp = transaction.timestamp,
                     selectedCategoryId = transaction.categoryId,
                     repeats = series != null,
-                    frequency = series?.frequency ?: RepeatFrequency.DEFAULT
+                    frequency = series?.frequency ?: RepeatFrequency.DEFAULT,
+                    isShared = transaction.isShared,
+                    splitPercentText = (transaction.payerSharePercent
+                        ?: it.categories.find { c -> c.id == transaction.categoryId }
+                            ?.defaultSplitPercent
+                        ?: DEFAULT_SPLIT_PERCENT).toString()
                 )
             }
         }
@@ -110,20 +115,52 @@ class AddTransactionViewModel @Inject constructor(
      * no longer matches.
      */
     fun onTypeChange(type: TransactionType) = _uiState.update { state ->
+        // Tapping the chip that is already selected changes nothing.
+        if (state.type == type) return@update state
+
         val selectionStillFits = state.categories.any {
             it.id == state.selectedCategoryId && it.type == type
         }
-        state.copy(
+        val changed = state.copy(
             type = type,
             selectedCategoryId = if (selectionStillFits) state.selectedCategoryId else null
         )
+        changed.withSplitDefaults()
     }
 
-    /** Selects a category, or deselects it if it was already selected. */
+    /**
+     * Selects a category, or deselects it if it was already selected.
+     * The split box follows the new category: ticked with its default share
+     * for a split category, unticked otherwise.
+     */
     fun onCategoryClick(categoryId: Long) = _uiState.update {
         it.copy(
             selectedCategoryId = if (it.selectedCategoryId == categoryId) null else categoryId
-        )
+        ).withSplitDefaults()
+    }
+
+    /** Ticks or unticks "Split this between users". */
+    fun onSplitChange(isShared: Boolean) =
+        _uiState.update { it.copy(isShared = isShared, splitErrorMessage = null) }
+
+    /** Accepts digits only, at most 3 (so "100" fits). */
+    fun onSplitPercentChange(text: String) {
+        val digits = text.filter { it.isDigit() }.take(3)
+        _uiState.update { it.copy(splitPercentText = digits, splitErrorMessage = null) }
+    }
+
+    /** Pre-fills the split box from the selected category. */
+    private fun AddTransactionUiState.withSplitDefaults(): AddTransactionUiState {
+        val category = selectedCategory
+        return if (canSplit && category != null) {
+            copy(
+                isShared = true,
+                splitPercentText = category.defaultSplitPercent.toString(),
+                splitErrorMessage = null
+            )
+        } else {
+            copy(isShared = false, splitErrorMessage = null)
+        }
     }
 
     /** Stores the amount text and clears any old error. */
@@ -179,6 +216,18 @@ class AddTransactionViewModel @Inject constructor(
             return
         }
 
+        // The share only counts when the expense is actually split.
+        val isShared = state.canSplit && state.isShared
+        val payerSharePercent = if (isShared) {
+            state.splitPercentText.toIntOrNull()?.takeIf { it in 0..100 }
+                ?: run {
+                    _uiState.update { it.copy(splitErrorMessage = "Enter a number from 0 to 100.") }
+                    return
+                }
+        } else {
+            null
+        }
+
         _uiState.update { it.copy(isSaving = true, errorMessage = null) }
 
         viewModelScope.launch {
@@ -194,7 +243,9 @@ class AddTransactionViewModel @Inject constructor(
                         categoryId = state.selectedCategoryId,
                         title = state.title,
                         note = state.note,
-                        timestamp = state.timestamp
+                        timestamp = state.timestamp,
+                        isShared = isShared,
+                        payerSharePercent = payerSharePercent
                     )
                 )
                 when (result) {
@@ -210,6 +261,8 @@ class AddTransactionViewModel @Inject constructor(
                         title = state.title,
                         note = state.note,
                         timestamp = state.timestamp,
+                        isShared = isShared,
+                        payerSharePercent = payerSharePercent,
                         // Saving an edit counts as the user confirming it.
                         reviewed = true
                     )
@@ -307,5 +360,8 @@ class AddTransactionViewModel @Inject constructor(
     private companion object {
         /** Temporary fixed currency. Becomes a user setting later. */
         const val DEFAULT_CURRENCY = "EUR"
+
+        /** Used when neither the transaction nor its category has a share yet. */
+        const val DEFAULT_SPLIT_PERCENT = 50
     }
 }

@@ -27,7 +27,9 @@ class UpdateTransactionUseCase @Inject constructor(
         }
 
         // Record when it was edited; sync uses this to decide which version wins.
-        repository.update(cleaned.copy(updatedAt = System.currentTimeMillis()))
+        repository.update(
+            cleaned.withSyncStateForSave().copy(updatedAt = System.currentTimeMillis())
+        )
         return AppResult.Success(Unit)
     }
 }

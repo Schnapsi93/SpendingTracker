@@ -10,6 +10,7 @@ import com.aljaz.spendingtracker.domain.repository.UnrecognizedMessageRepository
 import com.aljaz.spendingtracker.domain.usecase.ConfirmTransactionsUseCase
 import com.aljaz.spendingtracker.domain.usecase.ObserveCategoriesUseCase
 import com.aljaz.spendingtracker.domain.usecase.ObserveUnreviewedTransactionsUseCase
+import com.aljaz.spendingtracker.domain.usecase.UpdateTransactionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,6 +29,7 @@ class ReviewViewModel @Inject constructor(
     observeUnreviewed: ObserveUnreviewedTransactionsUseCase,
     observeCategories: ObserveCategoriesUseCase,
     private val confirmTransactions: ConfirmTransactionsUseCase,
+    private val updateTransaction: UpdateTransactionUseCase,
     private val unrecognizedMessages: UnrecognizedMessageRepository,
     private val bankMessageProcessor: BankMessageProcessor
 ) : ViewModel() {
@@ -60,6 +62,25 @@ class ReviewViewModel @Inject constructor(
         viewModelScope.launch { confirmTransactions(listOf(transaction.id)) }
     }
 
+    /**
+     * Ticks or unticks "Split this between users" for one transaction.
+     * Nothing is shared yet: shared expenses are uploaded only once confirmed.
+     */
+    fun onSplitToggle(transaction: Transaction, shared: Boolean) {
+        val category = transaction.categoryId?.let { uiState.value.categoriesById[it] }
+        val updated = if (shared) {
+            transaction.copy(
+                isShared = true,
+                payerSharePercent = transaction.payerSharePercent
+                    ?: category?.defaultSplitPercent
+                    ?: DEFAULT_SPLIT_PERCENT
+            )
+        } else {
+            transaction.copy(isShared = false, payerSharePercent = null)
+        }
+        viewModelScope.launch { updateTransaction(updated) }
+    }
+
     /** Confirms every transaction currently in the queue. */
     fun onConfirmAll() {
         val ids = uiState.value.transactions.map { it.id }
@@ -82,5 +103,10 @@ class ReviewViewModel @Inject constructor(
     /** Removes a message from the list for good. */
     fun onDelete(message: UnrecognizedMessage) {
         viewModelScope.launch { unrecognizedMessages.delete(message.id) }
+    }
+
+    private companion object {
+        /** Used when neither the transaction nor its category has a share. */
+        const val DEFAULT_SPLIT_PERCENT = 50
     }
 }

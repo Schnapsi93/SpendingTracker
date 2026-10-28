@@ -12,6 +12,8 @@ import com.aljaz.spendingtracker.domain.repository.TransactionRepository
 import com.aljaz.spendingtracker.domain.repository.UnrecognizedMessageRepository
 import com.aljaz.spendingtracker.domain.rules.CategoryRuleMatcher
 import com.aljaz.spendingtracker.domain.rules.RuleText
+import com.aljaz.spendingtracker.domain.usecase.withSplitDefaults
+import com.aljaz.spendingtracker.domain.usecase.withSyncStateForSave
 import javax.inject.Inject
 
 /** What happened to one incoming message. */
@@ -88,6 +90,7 @@ class BankMessageProcessor @Inject constructor(
         }
 
         val rule = matcher.match(ruleRepository.getAll(), parsed.merchant, parsed.operation)
+        val category = rule?.categoryId?.let { categoryRepository.getById(it) }
 
         val transaction = Transaction(
             type = parsed.type,
@@ -101,11 +104,15 @@ class BankMessageProcessor @Inject constructor(
             dedupeHash = dedupeHashOf(parsed),
             reviewed = false // shown in the review queue until confirmed
         )
+            // A split category pre-ticks "Split this between users" in the review queue.
+            // It is uploaded only after the user confirms it.
+            .withSplitDefaults(category)
+            .withSyncStateForSave()
 
         // The database rejects a second row with the same dedupeHash.
         val id = transactionRepository.add(transaction) ?: return BankMessageResult.Duplicate
 
-        val categoryName = rule?.categoryId?.let { categoryRepository.getById(it)?.name }
+        val categoryName = category?.name
         val saved = transaction.copy(id = id)
         if (notify) notifier.notifySaved(saved, categoryName)
         return BankMessageResult.Saved(saved, categoryName)

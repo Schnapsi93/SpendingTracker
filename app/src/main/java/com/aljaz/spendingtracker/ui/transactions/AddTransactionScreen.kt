@@ -41,6 +41,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import com.aljaz.spendingtracker.domain.model.RepeatFrequency
+import com.aljaz.spendingtracker.core.MoneyFormatter
 
 /**
  * Form for adding a new transaction or editing an existing one.
@@ -149,6 +150,19 @@ fun AddTransactionScreen(
                 onCategoryClick = viewModel::onCategoryClick
             )
 
+            // Only for expenses in a split category.
+            if (state.canSplit) {
+                SplitSection(
+                    isShared = state.isShared,
+                    percentText = state.splitPercentText,
+                    partnerShareText = state.partnerShareMinor?.let {
+                        MoneyFormatter.format(it, "EUR")
+                    },
+                    errorMessage = state.splitErrorMessage,
+                    onSplitChange = viewModel::onSplitChange,
+                    onPercentChange = viewModel::onSplitPercentChange
+                )
+            }
 
             // Only for automatic transactions with a category chosen.
             if (state.canCreateRule) {
@@ -306,6 +320,64 @@ private fun RepeatSection(
                 text = "Repeats from the date above. Future entries use what you save here. " +
                         "Untick and save to stop; entries already added stay.",
                 style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+
+/**
+ * "Split this between users" tick box and, when ticked, this user's share
+ * with a live preview of what the partner owes.
+ *
+ * @param partnerShareText the partner's part, formatted, or null while the
+ *        amount or the share can't be read yet
+ */
+@Composable
+private fun SplitSection(
+    isShared: Boolean,
+    percentText: String,
+    partnerShareText: String?,
+    errorMessage: String?,
+    onSplitChange: (Boolean) -> Unit,
+    onPercentChange: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = isShared,
+                    onValueChange = onSplitChange,
+                    role = Role.Checkbox
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // onCheckedChange is null: the row above handles the click.
+            Checkbox(checked = isShared, onCheckedChange = null)
+            Text(
+                text = "Split this between users",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(start = 12.dp)
+            )
+        }
+
+        if (isShared) {
+            OutlinedTextField(
+                value = percentText,
+                onValueChange = onPercentChange,
+                label = { Text("Your share (%)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = errorMessage != null,
+                supportingText = {
+                    Text(
+                        errorMessage
+                            ?: partnerShareText?.let { "Partner owes you $it" }
+                            ?: "The default comes from the category."
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
